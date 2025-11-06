@@ -1,0 +1,55 @@
+# -------------------------------------------------------------------------------
+# Project: Munchbox
+# Author: Alex Freidah
+# -------------------------------------------------------------------------------
+# GitHub Actions workflow to run nomad-pack template tests using containerized
+# builder image from private registry on self-hosted runners.
+# -------------------------------------------------------------------------------
+
+name: Nomad Pack Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  push:
+    tags: ['*']
+
+jobs:
+  # -----------------------------------------------------------------------
+  # Test nomad-pack templates using container from private registry
+  # -----------------------------------------------------------------------
+  test:
+    runs-on: [self-hosted, ci, github-actions]
+    container:
+      image: docker-mirror.service.consul/nomad-pack-builder:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Format check
+        run: make fmt-check
+
+      - name: Validate pack structure
+        run: make validate
+
+      - name: Security scanning
+        run: make security
+
+      - name: Render templates
+        run: make render
+
+      - name: Upload rendered jobs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-nomad-jobs
+          path: /tmp/nomad-pack-rendered/
+          retention-days: 30
+
+      - name: Test summary
+        if: success()
+        run: |
+          echo "✓ All nomad-pack tests passed"
+          echo ""
+          echo "Rendered jobs available in artifacts"
