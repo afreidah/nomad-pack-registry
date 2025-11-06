@@ -1,5 +1,5 @@
 # -------------------------------------------------------------------------------
-# Project: Munchbox
+# Project: Nomad Job Template
 # Author: Alex Freidah
 # -------------------------------------------------------------------------------
 # GitHub Actions workflow to build and push nomad-pack-builder Docker image to
