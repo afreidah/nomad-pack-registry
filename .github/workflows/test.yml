@@ -1,5 +1,5 @@
 # -------------------------------------------------------------------------------
-# Project: Nomad Job Template
+# Project: Munchbox
 # Author: Alex Freidah
 # -------------------------------------------------------------------------------
 # GitHub Actions workflow to run nomad-pack template tests using containerized
@@ -12,7 +12,6 @@ on:
   pull_request:
   push:
     branches: [main]
-  push:
     tags: ['*']
 
 jobs:
