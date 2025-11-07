@@ -1,12 +1,12 @@
 # -------------------------------------------------------------------------------
-# Project: Munchbox
+# Project: Nomad Job Template
 # Author: Alex Freidah
 # -------------------------------------------------------------------------------
 # Makefile for nomad-service pack template repository. Provides targets for
 # formatting validation, template rendering, security scanning, and testing.
 # -------------------------------------------------------------------------------
 
-.PHONY: help fmt fmt-check validate render security test clean install
+.PHONY: help fmt fmt-check validate render security test clean install docker-build
 
 SHELL := /bin/bash
 PACK_NAME := nomad-service
@@ -29,11 +29,13 @@ help:
 	@echo "  make security         Run security scanning (Checkov)"
 	@echo "  make test             Run all checks (fmt-check, validate, security)"
 	@echo "  make install          Install dependencies (nomad-pack, checkov)"
+	@echo "  make docker-build     Build Docker image for testing"
 	@echo "  make clean            Remove rendered job files"
 	@echo "  make help             Show this help message"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make fmt && make test              # Format then run all checks"
+	@echo "  make docker-build                  # Build Docker image"
 	@echo "  make render && ls /tmp/nomad-pack-rendered/"
 	@echo ""
 
@@ -178,6 +180,15 @@ clean:
 	@echo "Cleaning up..."
 	@rm -rf $(RENDERED_DIR)
 	@echo "✓ Cleanup complete"
+
+# -----------------------------------------------------------------------
+# Docker Build Target
+# -----------------------------------------------------------------------
+
+docker-build:
+	@echo "Building Docker image..."
+	docker build -t nomad-pack-builder:latest .
+	@echo "✓ Docker image built: nomad-pack-builder:latest"
 
 # -----------------------------------------------------------------------
 # Development Targets
