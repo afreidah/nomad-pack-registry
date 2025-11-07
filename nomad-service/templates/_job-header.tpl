@@ -1,9 +1,30 @@
 # -------------------------------------------------------------------------------
+# Project: Nomad Job Template
+# Author: Alex Freidah
+# -------------------------------------------------------------------------------
 # Job Header Configuration
 #
 # Defines job-level metadata, Vault integration, and update strategy. This
 # section applies to the entire job across all task groups.
 # -------------------------------------------------------------------------------
+
+[[- define "job_header" -]]
+
+# -----------------------------------------------------------------------
+# Load and Resolve Configuration (needed for helper template)
+# -----------------------------------------------------------------------
+
+[[- $deployment_profile := var "deployment_profile" . ]]
+[[- $deployment_profiles := var "deployment_profiles" . ]]
+[[- $update := index $deployment_profiles $deployment_profile ]]
+
+[[- $meta_profile := var "meta_profile" . ]]
+[[- $meta_profiles := var "meta_profiles" . ]]
+[[- $meta := index $meta_profiles $meta_profile ]]
+
+# -----------------------------------------------------------------------
+# Job Definition
+# -----------------------------------------------------------------------
 
 job "[[ var "job_name" . ]]" {
 
@@ -72,3 +93,5 @@ job "[[ var "job_name" . ]]" {
     auto_promote      = [[ $update.auto_promote ]]
     stagger           = "[[ var "stagger" . | default "30s" ]]"
   }
+
+[[- end -]]

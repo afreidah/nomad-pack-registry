@@ -1,11 +1,8 @@
 # -------------------------------------------------------------------------------
-# Project: Munchbox
+# Project: Nomad Job Template
 # Author: Alex Freidah
 # -------------------------------------------------------------------------------
-# Universal, highly-configurable Nomad service job template entry point.
-# Loads configuration from variables and includes modular templates for job
-# header, task group config, and task definitions. Supports resource tiers,
-# deployment profiles, Vault integration, and constraint presets.
+# [[ var "job_description" . ]]
 # -------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------
@@ -32,15 +29,6 @@
 [[- $category_defaults := var "category_defaults" . ]]
 [[- $category_cfg := index $category_defaults $category ]]
 
-# --- Resolve constraint preset ---
-[[- $constraint_preset := var "constraint_preset" . ]]
-[[- $constraint_presets := var "constraint_presets" . ]]
-[[- if $constraint_preset ]]
-[[- $constraints := index $constraint_presets $constraint_preset ]]
-[[- else ]]
-[[- $constraints := list ]]
-[[- end ]]
-
 # --- Resolve reschedule preset ---
 [[- $reschedule_preset := var "reschedule_preset" . ]]
 [[- $reschedule_presets := var "reschedule_presets" . ]]
@@ -52,20 +40,20 @@
 [[- $network := index $network_presets $network_preset ]]
 
 # -----------------------------------------------------------------------
-# Job Definition (includes modular templates)
+# Job Definition (includes helper templates)
 # -----------------------------------------------------------------------
 
-[[ template "job-header.tpl" . ]]
+[[ template "job_header" . ]]
   # -----------------------------------------------------------------------
   # Task Group Configuration
   # -----------------------------------------------------------------------
-  [[ template "group-config.tpl" . ]]
+  [[ template "group_config" . ]]
     # --- Tasks ---
     [[- if var "task" . ]]
-    [[ template "single-task.tpl" . ]]
+    [[ template "single_task" . ]]
     [[- end ]]
     [[- if var "tasks" . ]]
-    [[ template "multi-task.tpl" . ]]
+    [[ template "multi_task" . ]]
     [[- end ]]
   }
 }

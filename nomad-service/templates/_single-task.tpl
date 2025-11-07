@@ -1,10 +1,27 @@
 # -------------------------------------------------------------------------------
+# Project: Nomad Job Template
+# Author: Alex Freidah
+# -------------------------------------------------------------------------------
 # Single Task Configuration
 #
 # Template for jobs with a single main task. Includes driver configuration,
 # workload identity, Traefik integration, service registration, and resource
 # allocation.
 # -------------------------------------------------------------------------------
+
+[[- define "single_task" -]]
+
+# -----------------------------------------------------------------------
+# Load and Resolve Configuration (needed for helper template)
+# -----------------------------------------------------------------------
+
+[[- $tier := var "resource_tier" . ]]
+[[- $resource_tiers := var "resource_tiers" . ]]
+[[- $resources := index $resource_tiers $tier ]]
+
+# -----------------------------------------------------------------------
+# Single Task Definition
+# -----------------------------------------------------------------------
 
 task "[[ (var "task" .).name ]]" {
 
@@ -98,7 +115,7 @@ task "[[ (var "task" .).name ]]" {
 
       [[- if (var "traefik" .).routes ]]
       # --- Multiple routes for multi-port services ---
-      [[- range (var "traefik" .).routes ]]
+      [[- range (var "traefik" .).routes | default list ]]
       "traefik.http.routers.[[ .name ]].rule"        = "Host(`[[ .hostname ]].[[ (var "traefik" .).domain | default "munchbox.local" ]]`)"
       "traefik.http.routers.[[ .name ]].entrypoints" = "[[ (var "traefik" .).entrypoint | default "websecure" ]]"
       "traefik.http.routers.[[ .name ]].tls"         = "true"
@@ -163,7 +180,7 @@ task "[[ (var "task" .).name ]]" {
   [[- if (var "task" .).env ]]
   # --- Non-secret environment variables ---
   env {
-    [[- range $key, $value := (var "task" .).env ]]
+    [[- range $key, $value := (var "task" .).env | default dict ]]
     [[ $key ]] = "[[ $value ]]"
     [[- end ]]
   }
@@ -175,7 +192,7 @@ task "[[ (var "task" .).name ]]" {
   [[- if index (var "vault" .) "secrets" ]]
   template {
     data = <<-EOT
-    [[- range $key, $path := index (var "vault" .) "secrets" ]]
+    [[- range $key, $path := index (var "vault" .) "secrets" | default dict ]]
 {{ with secret "[[ $path ]]" }}
 [[ upper (replace $key "_" "") ]]="{{ .Data.data.value }}"
 {{ end }}
@@ -320,3 +337,5 @@ task "[[ (var "task" .).name ]]" {
     max_file_size = [[ var "log_max_file_size" . | default 10 ]]
   }
 }
+
+[[- end -]]

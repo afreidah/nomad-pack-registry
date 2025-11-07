@@ -1,9 +1,26 @@
 # -------------------------------------------------------------------------------
+# Project: Nomad Job Template
+# Author: Alex Freidah
+# -------------------------------------------------------------------------------
 # Multi-Task Configuration
 #
 # Template for jobs with multiple tasks (prestart hooks, sidecars, etc).
 # Supports lifecycle management and per-task resource allocation.
 # -------------------------------------------------------------------------------
+
+[[- define "multi_task" -]]
+
+# -----------------------------------------------------------------------
+# Load and Resolve Configuration (needed for helper template)
+# -----------------------------------------------------------------------
+
+[[- $tier := var "resource_tier" . ]]
+[[- $resource_tiers := var "resource_tiers" . ]]
+[[- $resources := index $resource_tiers $tier ]]
+
+# -----------------------------------------------------------------------
+# Multi-Task Definition
+# -----------------------------------------------------------------------
 
 [[- range var "tasks" . | default list ]]
 task "[[ .name ]]" {
@@ -137,7 +154,7 @@ task "[[ .name ]]" {
   [[- if .env ]]
   # --- Non-secret environment variables ---
   env {
-    [[- range $key, $value := .env ]]
+    [[- range $key, $value := .env | default dict ]]
     [[ $key ]] = "[[ $value ]]"
     [[- end ]]
   }
@@ -254,3 +271,5 @@ task "[[ .name ]]" {
   [[- end ]]
 }
 [[- end ]]
+
+[[- end -]]

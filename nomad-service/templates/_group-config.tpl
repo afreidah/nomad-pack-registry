@@ -1,10 +1,35 @@
 # -------------------------------------------------------------------------------
+# Project: Nomad Job Template
+# Author: Alex Freidah
+# -------------------------------------------------------------------------------
 # Task Group Configuration
 #
 # Defines task group-level settings including networking, storage, placement
 # constraints, and restart/reschedule policies. These apply to all tasks in
 # the group.
 # -------------------------------------------------------------------------------
+
+[[- define "group_config" -]]
+
+# -----------------------------------------------------------------------
+# Load and Resolve Configuration (needed for helper template)
+# -----------------------------------------------------------------------
+
+[[- $tier := var "resource_tier" . ]]
+[[- $resource_tiers := var "resource_tiers" . ]]
+[[- $resources := index $resource_tiers $tier ]]
+
+[[- $network_preset := var "network_preset" . ]]
+[[- $network_presets := var "network_presets" . ]]
+[[- $network := index $network_presets $network_preset ]]
+
+[[- $reschedule_preset := var "reschedule_preset" . ]]
+[[- $reschedule_presets := var "reschedule_presets" . ]]
+[[- $reschedule := index $reschedule_presets $reschedule_preset ]]
+
+# -----------------------------------------------------------------------
+# Task Group Definition
+# -----------------------------------------------------------------------
 
 group "[[ var "group_name" . | default (var "job_name" .) ]]" {
 
@@ -22,7 +47,7 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
     [[- end ]]
 
     # --- Port definitions ---
-    [[- range var "ports" . ]]
+    [[- range var "ports" . | default list ]]
     port "[[ .name ]]" {
       [[- if .static ]]
       static = [[ .static ]]
@@ -52,7 +77,10 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
   # Placement Constraints (from constraint preset)
   # -----------------------------------------------------------------------
 
-  [[- range $constraints ]]
+  [[- if var "constraint_preset" . ]]
+  [[- $constraint_presets := var "constraint_presets" . ]]
+  [[- $constraint_preset := var "constraint_preset" . ]]
+  [[- range index $constraint_presets $constraint_preset | default list ]]
   constraint {
     attribute = "[[ .attribute ]]"
     [[- if .operator ]]
@@ -63,9 +91,10 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
     [[- end ]]
   }
   [[- end ]]
+  [[- end ]]
 
   # --- Additional custom constraints ---
-  [[- range var "constraints" . ]]
+  [[- range var "constraints" . | default list ]]
   constraint {
     attribute = "[[ .attribute ]]"
     [[- if .operator ]]
@@ -125,3 +154,5 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
     delay_function = "[[ $reschedule.delay_function ]]"
     unlimited      = [[ $reschedule.unlimited ]]
   }
+
+[[- end -]]
