@@ -2,8 +2,8 @@
 # Project: Nomad Job Template
 # Author: Alex Freidah
 # -------------------------------------------------------------------------------
-# GitHub Actions workflow to run nomad-pack template tests using containerized
-# builder image from private registry on self-hosted runners.
+# GitHub Actions workflow to run nomad-pack template tests. Builds Dockerfile
+# inline and runs tests in the container on GitHub-hosted runners.
 # -------------------------------------------------------------------------------
 
 name: Nomad Pack Tests
@@ -16,27 +16,31 @@ on:
 
 jobs:
   # -----------------------------------------------------------------------
-  # Test nomad-pack templates using container from private registry
+  # Test nomad-pack templates using built container image
   # -----------------------------------------------------------------------
   test:
-    runs-on: [self-hosted, linux]
-    container:
-      image: docker-mirror.service.consul/nomad-pack-builder:latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Format check
-        run: make fmt-check
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-      - name: Validate pack structure
-        run: make validate
+      - name: Build Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: false
+          load: true
+          tags: nomad-pack-builder:test
 
-      - name: Security scanning
-        run: make security
-
-      - name: Render templates
-        run: make render
+      - name: Run tests in container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            nomad-pack-builder:test \
+            make test
 
       - name: Upload rendered jobs
         if: always()
@@ -45,10 +49,9 @@ jobs:
           name: rendered-nomad-jobs
           path: /tmp/nomad-pack-rendered/
           retention-days: 30
+          if-no-files-found: ignore
 
       - name: Test summary
         if: success()
         run: |
           echo "✓ All nomad-pack tests passed"
-          echo ""
-          echo "Rendered jobs available in artifacts"
