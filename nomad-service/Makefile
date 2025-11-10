@@ -26,9 +26,9 @@ help:
 	@echo "  make fmt-check        Check formatting without modifying files"
 	@echo "  make validate         Validate pack structure and examples"
 	@echo "  make render           Render all example job files"
-	@echo "  make security         Run security scanning (Checkov)"
-	@echo "  make test             Run all checks (fmt-check, validate, security)"
-	@echo "  make install          Install dependencies (nomad-pack, checkov)"
+	@echo "  make security         Run security scanning (templates, rendered, dockerfile)"
+	@echo "  make test             Run all checks (fmt-check, validate, render, security)"
+	@echo "  make install          Install dependencies (nomad-pack, checkov, trivy)"
 	@echo "  make clean            Remove rendered job files"
 	@echo "  make help             Show this help message"
 	@echo ""
@@ -100,8 +100,7 @@ render: validate-structure
 			if [ -f "$$example" ]; then \
 				example_name=$$(basename "$$example" .hcl); \
 				echo "  Rendering: $$example_name..."; \
-				nomad-pack render $(PACK_PATH) -f "$$example" \
-					> "$(RENDERED_DIR)/$$example_name.nomad" || \
+				nomad-pack render $(PACK_PATH) -f "$$example" | tail -n +2 | tee "$(RENDERED_DIR)/$$example_name.nomad" || \
 					(echo "✗ Rendering failed: $$example"; exit 1); \
 			fi; \
 		done; \
@@ -115,18 +114,20 @@ render: validate-structure
 # Security Scanning
 # -----------------------------------------------------------------------
 
-security: security-checkov security-hcl
+security: security-templates security-rendered security-dockerfile
 	@echo "✓ Security checks passed"
 
-security-checkov:
-	@echo "Running Checkov security scan..."
+security-templates: security-checkov-templates security-hcl
+
+security-checkov-templates:
+	@echo "Running Checkov security scan on templates..."
 	@command -v checkov > /dev/null || \
 		(echo "✗ checkov not installed. Run 'make install'"; exit 1)
 	checkov -d $(TEMPLATES_DIR)/ \
 		--framework terraform \
 		--quiet \
 		--soft-fail || true
-	@echo "✓ Checkov scan complete"
+	@echo "✓ Checkov template scan complete"
 
 security-hcl:
 	@echo "Scanning templates for common issues..."
@@ -138,6 +139,48 @@ security-hcl:
 	@grep -r "secret.*=" $(TEMPLATES_DIR)/ 2>/dev/null && \
 		echo "  ⚠ Found hardcoded secret (review for security)" || true
 	@echo "✓ HCL security scan complete"
+
+security-rendered: render
+	@echo "Validating rendered jobfiles..."
+	@if [ -d "$(RENDERED_DIR)" ] && [ -n "$$(ls $(RENDERED_DIR)/*.nomad 2>/dev/null)" ]; then \
+		for jobfile in $(RENDERED_DIR)/*.nomad; do \
+			echo "  Validating: $$(basename $$jobfile)..."; \
+			nomad job validate "$$jobfile" > /dev/null || exit 1; \
+		done; \
+		echo "✓ Rendered jobfiles valid"; \
+	else \
+		echo "⚠ No rendered jobfiles found"; \
+	fi
+	@echo "Running Checkov on rendered jobfiles..."
+	@if [ -d "$(RENDERED_DIR)" ] && [ -n "$$(ls $(RENDERED_DIR)/*.nomad 2>/dev/null)" ]; then \
+		for jobfile in $(RENDERED_DIR)/*.nomad; do \
+			checkov -f "$$jobfile" \
+				--framework terraform \
+				--quiet \
+				--soft-fail || true; \
+		done; \
+	fi
+	@echo "✓ Rendered jobfile security scan complete"
+
+security-dockerfile:
+	@echo "Scanning Dockerfile for security issues..."
+	@if [ -f "Dockerfile" ]; then \
+		echo "  Running Checkov on Dockerfile..."; \
+		checkov -f Dockerfile --framework dockerfile --quiet --soft-fail || true; \
+		echo "  Running Trivy on Dockerfile..."; \
+		command -v trivy > /dev/null && trivy config Dockerfile --quiet --exit-code 0 || \
+			echo "  ⚠ Trivy not installed (skipping)"; \
+		echo "✓ Dockerfile security scan complete"; \
+	elif [ -f "../Dockerfile" ]; then \
+		echo "  Running Checkov on ../Dockerfile..."; \
+		checkov -f ../Dockerfile --framework dockerfile --quiet --soft-fail || true; \
+		echo "  Running Trivy on ../Dockerfile..."; \
+		command -v trivy > /dev/null && trivy config ../Dockerfile --quiet --exit-code 0 || \
+			echo "  ⚠ Trivy not installed (skipping)"; \
+		echo "✓ Dockerfile security scan complete"; \
+	else \
+		echo "⚠ No Dockerfile found (skipping)"; \
+	fi
 
 # -----------------------------------------------------------------------
 # Comprehensive Testing
@@ -157,7 +200,7 @@ install:
 	@echo "Installing dependencies..."
 	@command -v nomad > /dev/null || \
 		(echo "Installing Nomad..."; curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add - && \
-		 sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(shell lsb_release -cs) main" && \
+		 sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $$(lsb_release -cs) main" && \
 		 sudo apt-get update && sudo apt-get install -y nomad) || \
 		echo "Nomad installation requires manual setup: https://www.nomadproject.io/downloads"
 	@command -v nomad-pack > /dev/null || \
@@ -168,6 +211,9 @@ install:
 	@command -v checkov > /dev/null || \
 		(echo "Installing checkov..."; pip3 install checkov) || \
 		echo "checkov installation requires: pip3 install checkov"
+	@command -v trivy > /dev/null || \
+		(echo "Installing trivy..."; curl -fsSL https://github.com/aquasecurity/trivy/releases/download/v0.48.0/trivy_0.48.0_Linux-64bit.tar.gz | sudo tar -xzf - -C /usr/local/bin/) || \
+		echo "trivy installation requires manual setup: https://github.com/aquasecurity/trivy"
 	@echo "✓ Dependencies installed"
 
 # -----------------------------------------------------------------------

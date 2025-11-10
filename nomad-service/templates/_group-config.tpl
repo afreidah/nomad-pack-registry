@@ -147,6 +147,7 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
   # Reschedule Policy (from reschedule preset)
   # -----------------------------------------------------------------------
 
+  [[- if ne (var "job_type" .) "system" ]]
   reschedule {
     attempts       = [[ $reschedule.max_reschedules ]]
     interval       = "[[ $reschedule.delay ]]"
@@ -154,5 +155,6 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
     delay_function = "[[ $reschedule.delay_function ]]"
     unlimited      = [[ $reschedule.unlimited ]]
   }
+  [[- end ]]
 
 [[- end -]]
