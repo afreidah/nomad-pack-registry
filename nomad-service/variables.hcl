@@ -396,3 +396,13 @@ variable "constraint_presets" {
     ]
   }
 }
+
+# -----------------------------------------------------------------------
+# Network Configuration
+# -----------------------------------------------------------------------
+
+variable "dns_servers" {
+  description = "DNS servers for task group"
+  type        = list(string)
+  default     = ["172.17.0.1"]
+}
