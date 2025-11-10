@@ -247,11 +247,7 @@ task "[[ (var "task" .).name ]]" {
     provider = "[[ (var "task" .).service.provider | default "consul" ]]"
 
     # --- Tags ---
-    tags = [
-      [[- range (var "task" .).service.tags | default list ]]
-      "[[ . ]]",
-      [[- end ]]
-    ]
+    tags = [[ (var "task" .).service.tags | default list | toJson ]]
 
     # --- Health checks ---
     [[- range (var "task" .).service.checks | default list ]]

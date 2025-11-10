@@ -363,13 +363,13 @@ variable "reschedule_presets" {
   }))
   default = {
     standard = {
-      delay            = "5s"
+      delay            = "30s"
       delay_function   = "exponential"
-      max_reschedules  = 5
+      max_reschedules  = 3
       unlimited        = false
     }
     aggressive = {
-      delay            = "1s"
+      delay            = "5s"
       delay_function   = "exponential"
       max_reschedules  = 10
       unlimited        = false
@@ -468,7 +468,11 @@ variable "ephemeral_disk" {
     migrate = bool
     sticky  = bool
   })
-  default = null
+  default = {
+    size    = 0
+    migrate = false
+    sticky  = false
+  }
 }
 
 # -------------------------------------------------------------------------------

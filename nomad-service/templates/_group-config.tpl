@@ -123,13 +123,16 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
   }
   [[- end ]]
 
+  # --- Ephemeral disk ---
   [[- if var "ephemeral_disk" . ]]
+  [[- if (var "ephemeral_disk" .).size ]]
   # --- Ephemeral disk ---
   ephemeral_disk {
     size    = [[ (var "ephemeral_disk" .).size ]]
     migrate = [[ (var "ephemeral_disk" .).migrate | default false ]]
     sticky  = [[ (var "ephemeral_disk" .).sticky | default false ]]
   }
+  [[- end ]]
   [[- end ]]
 
   # -----------------------------------------------------------------------
