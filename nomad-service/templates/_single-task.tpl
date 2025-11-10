@@ -85,6 +85,10 @@ task "[[ (var "task" .).name ]]" {
     image_pull_timeout = "[[ (var "task" .).config.image_pull_timeout ]]"
     [[- end ]]
 
+    [[- if (var "task" .).config.force_pull ]]
+    force_pull = [[ (var "task" .).config.force_pull ]]
+    [[- end ]]
+
     [[- if (var "task" .).config.network_mode ]]
     network_mode = "[[ (var "task" .).config.network_mode ]]"
     [[- end ]]
@@ -218,6 +222,9 @@ task "[[ (var "task" .).name ]]" {
     [[- end ]]
     [[- if .change_mode ]]
     change_mode = "[[ .change_mode ]]"
+    [[- end ]]
+    [[- if .change_signal ]]
+    change_signal = "[[ .change_signal ]]"
     [[- end ]]
     [[- if .data ]]
     data = <<-EOT
