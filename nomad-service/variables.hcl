@@ -416,3 +416,192 @@ variable "dns_servers" {
   type        = list(string)
   default     = ["172.17.0.1"]
 }
+
+# -------------------------------------------------------------------------------
+# Network Ports
+# -------------------------------------------------------------------------------
+
+# --- Port Definitions
+variable "ports" {
+  description = "Network port definitions for task group"
+  type = list(object({
+    name   = string
+    static = number
+    port   = number
+  }))
+  default = []
+}
+
+# -------------------------------------------------------------------------------
+# Storage & Volumes
+# -------------------------------------------------------------------------------
+
+# --- Volume Definition
+variable "volume" {
+  description = "Task group volume mount configuration"
+  type = object({
+    name       = string
+    type       = string
+    source     = string
+    read_only  = bool
+    mount_path = string
+  })
+  default = null
+}
+
+# --- Additional Volume Mounts
+variable "volume_mounts" {
+  description = "Additional volume mounts for task"
+  type = list(object({
+    volume      = string
+    destination = string
+    read_only   = bool
+  }))
+  default = []
+}
+
+# --- Ephemeral Disk
+variable "ephemeral_disk" {
+  description = "Ephemeral disk configuration"
+  type = object({
+    size    = number
+    migrate = bool
+    sticky  = bool
+  })
+  default = null
+}
+
+# -------------------------------------------------------------------------------
+# Vault & Secrets
+# -------------------------------------------------------------------------------
+
+# --- Vault Integration
+variable "vault" {
+  description = "Vault workload identity configuration"
+  type = object({
+    enabled      = bool
+    role         = string
+    policy       = string
+    change_mode  = string
+    change_signal = string
+    env          = bool
+    namespace    = string
+    secrets      = map(string)
+    aud          = list(string)
+  })
+  default = {
+    enabled       = false
+    role          = ""
+    policy        = ""
+    change_mode   = "restart"
+    change_signal = "SIGTERM"
+    env           = true
+    namespace     = ""
+    secrets       = {}
+    aud           = []
+  }
+}
+
+# -------------------------------------------------------------------------------
+# Traefik Routing
+# -------------------------------------------------------------------------------
+
+# --- Traefik Configuration
+variable "traefik" {
+  description = "Traefik routing and ingress configuration"
+  type = object({
+    enabled     = bool
+    service     = string
+    hostname    = string
+    domain      = string
+    entrypoint  = string
+    port        = number
+    routes      = list(object({
+      name     = string
+      hostname = string
+      port     = number
+    }))
+    middlewares = list(string)
+  })
+  default = {
+    enabled     = false
+    service     = ""
+    hostname    = ""
+    domain      = "munchbox"
+    entrypoint  = "websecure"
+    port        = 8080
+    routes      = []
+    middlewares = []
+  }
+}
+
+# -------------------------------------------------------------------------------
+# Logging Configuration
+# -------------------------------------------------------------------------------
+
+# --- Log Retention
+variable "log_max_files" {
+  description = "Maximum number of log files to retain"
+  type        = number
+  default     = 10
+}
+
+variable "log_max_file_size" {
+  description = "Maximum log file size in MB"
+  type        = number
+  default     = 10
+}
+
+# -------------------------------------------------------------------------------
+# Task Group Configuration
+# -------------------------------------------------------------------------------
+
+# --- Task Group Name
+variable "group_name" {
+  description = "Task group name (defaults to job name)"
+  type        = string
+  default     = ""
+}
+
+# --- Task Group Count
+variable "count" {
+  description = "Number of task group instances"
+  type        = number
+  default     = 1
+}
+
+# -------------------------------------------------------------------------------
+# Network Hostname
+# -------------------------------------------------------------------------------
+
+# --- Network Hostname
+variable "network_hostname" {
+  description = "Hostname for task group network namespace"
+  type        = string
+  default     = ""
+}
+
+# --- DNS Search Domains
+variable "dns_searches" {
+  description = "DNS search domains for task group"
+  type        = list(string)
+  default     = []
+}
+
+# --- DNS Options
+variable "dns_options" {
+  description = "DNS resolver options"
+  type        = list(string)
+  default     = []
+}
+
+# -------------------------------------------------------------------------------
+# Job Update Strategy
+# -------------------------------------------------------------------------------
+
+# --- Stagger Delay
+variable "stagger" {
+  description = "Time between task updates during rolling deployment"
+  type        = string
+  default     = "30s"
+}
