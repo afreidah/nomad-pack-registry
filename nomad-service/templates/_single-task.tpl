@@ -162,11 +162,13 @@ task "[[ (var "task" .).name ]]" {
   # -----------------------------------------------------------------------
 
   [[- if var "volume" . ]]
+  [[- if (var "volume" .).name ]]
   volume_mount {
     volume      = "[[ (var "volume" .).name ]]"
     destination = "[[ (var "volume" .).mount_path ]]"
     read_only   = [[ (var "volume" .).read_only | default false ]]
   }
+  [[- end ]]
   [[- end ]]
 
   [[- range (var "task" .).volume_mounts | default list ]]

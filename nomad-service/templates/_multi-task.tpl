@@ -22,7 +22,8 @@
 # Multi-Task Definition
 # -----------------------------------------------------------------------
 
-[[- range var "tasks" . | default list ]]
+[[- if var "tasks" . ]]
+[[- range var "tasks" . ]]
 task "[[ .name ]]" {
 
   driver = "[[ .driver ]]"
@@ -179,6 +180,7 @@ task "[[ .name ]]" {
     EOT
     [[- end ]]
   }
+  [[- end ]]
   [[- end ]]
 
   # -----------------------------------------------------------------------

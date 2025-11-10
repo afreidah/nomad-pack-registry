@@ -85,14 +85,11 @@ job "[[ var "job_name" . ]]" {
 
   update {
     max_parallel      = [[ $update.max_parallel ]]
-    health_check      = "[[ $update.health_check | default "checks" ]]"
+    health_check      = "[[ $update.health_check ]]"
     min_healthy_time  = "[[ $update.min_healthy_time ]]"
     healthy_deadline  = "[[ $update.healthy_deadline ]]"
     progress_deadline = "[[ $update.progress_deadline ]]"
     auto_revert       = [[ $update.auto_revert ]]
-    [[- if ne (var "job_type" .) "system" ]]
-    auto_promote      = [[ $update.auto_promote ]]
-    [[- end ]]
     stagger           = "[[ var "stagger" . | default "30s" ]]"
   }
 

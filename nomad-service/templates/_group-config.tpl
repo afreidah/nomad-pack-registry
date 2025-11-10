@@ -123,7 +123,6 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
   }
   [[- end ]]
 
-  # --- Ephemeral disk ---
   [[- if var "ephemeral_disk" . ]]
   [[- if (var "ephemeral_disk" .).size ]]
   # --- Ephemeral disk ---
@@ -153,7 +152,7 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
   [[- if ne (var "job_type" .) "system" ]]
   reschedule {
     attempts       = [[ $reschedule.max_reschedules ]]
-    interval       = "[[ $reschedule.delay ]]"
+    interval       = "2m"
     delay          = "[[ $reschedule.delay ]]"
     delay_function = "[[ $reschedule.delay_function ]]"
     unlimited      = [[ $reschedule.unlimited ]]

@@ -124,14 +124,17 @@ variable "constraint_presets" {
 variable "task" {
   description = "Single task configuration"
   type        = map(string)
-  default     = null
+  default     = {}
 }
 
 # --- Multiple Task Configurations
 variable "tasks" {
   description = "Multiple task configurations"
-  type        = list(map(string))
-  default     = []
+  type        = list(object({
+    name   = string
+    driver = string
+  }))
+  default = []
 }
 
 # -------------------------------------------------------------------------------
@@ -363,7 +366,7 @@ variable "reschedule_presets" {
   }))
   default = {
     standard = {
-      delay            = "30s"
+      delay            = "15s"
       delay_function   = "exponential"
       max_reschedules  = 3
       unlimited        = false
@@ -446,7 +449,13 @@ variable "volume" {
     read_only  = bool
     mount_path = string
   })
-  default = null
+  default = {
+    name       = ""
+    type       = ""
+    source     = ""
+    read_only  = false
+    mount_path = ""
+  }
 }
 
 # --- Additional Volume Mounts
@@ -483,15 +492,15 @@ variable "ephemeral_disk" {
 variable "vault" {
   description = "Vault workload identity configuration"
   type = object({
-    enabled      = bool
-    role         = string
-    policy       = string
-    change_mode  = string
+    enabled       = bool
+    role          = string
+    policy        = string
+    change_mode   = string
     change_signal = string
-    env          = bool
-    namespace    = string
-    secrets      = map(string)
-    aud          = list(string)
+    env           = bool
+    namespace     = string
+    secrets       = map(string)
+    aud           = list(string)
   })
   default = {
     enabled       = false
