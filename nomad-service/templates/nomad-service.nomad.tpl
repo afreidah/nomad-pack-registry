@@ -1,8 +1,8 @@
 # -------------------------------------------------------------------------------
-# Project: Nomad Job Template
+# Project: Munchbox
 # Author: Alex Freidah
 # -------------------------------------------------------------------------------
-# [[ var "job_description" . ]]
+# Generic service job template for Munchbox homelab deployment
 # -------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------
@@ -23,11 +23,6 @@
 [[- $meta_profile := var "meta_profile" . ]]
 [[- $meta_profiles := var "meta_profiles" . ]]
 [[- $meta := index $meta_profiles $meta_profile ]]
-
-# --- Resolve category defaults ---
-[[- $category := var "category" . ]]
-[[- $category_defaults := var "category_defaults" . ]]
-[[- $category_cfg := index $category_defaults $category ]]
 
 # --- Resolve reschedule preset ---
 [[- $reschedule_preset := var "reschedule_preset" . ]]

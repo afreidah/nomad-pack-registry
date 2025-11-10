@@ -506,33 +506,53 @@ variable "vault" {
 # Traefik Routing
 # -------------------------------------------------------------------------------
 
-# --- Traefik Configuration
-variable "traefik" {
-  description = "Traefik routing and ingress configuration"
-  type = object({
-    enabled     = bool
-    service     = string
-    hostname    = string
-    domain      = string
-    entrypoint  = string
-    port        = number
-    routes      = list(object({
-      name     = string
-      hostname = string
-      port     = number
-    }))
-    middlewares = list(string)
-  })
-  default = {
-    enabled     = false
-    service     = ""
-    hostname    = ""
-    domain      = "munchbox"
-    entrypoint  = "websecure"
-    port        = 8080
-    routes      = []
-    middlewares = []
-  }
+# --- Traefik Enable
+variable "traefik_enable" {
+  description = "Enable Traefik service routing"
+  type        = bool
+  default     = false
+}
+
+# --- Traefik Internal Hostname
+variable "traefik_internal_host" {
+  description = "Internal hostname for munchbox domain (e.g., 'resume' for resume.munchbox)"
+  type        = string
+  default     = ""
+}
+
+# --- Traefik External Hosts
+variable "traefik_external_hosts" {
+  description = "External hostnames for public routing (e.g., ['alexfreidah.com', 'www.alexfreidah.com'])"
+  type        = list(string)
+  default     = []
+}
+
+# --- Traefik Internal Middlewares
+variable "traefik_internal_middlewares" {
+  description = "Middlewares to apply to internal routes"
+  type        = list(string)
+  default     = []
+}
+
+# --- Traefik Internal Entrypoint
+variable "traefik_internal_entrypoint" {
+  description = "Entrypoint for internal routes (websecure, web, etc)"
+  type        = string
+  default     = "websecure"
+}
+
+# --- Traefik External Entrypoint
+variable "traefik_external_entrypoint" {
+  description = "Entrypoint for external routes (web, websecure, etc)"
+  type        = string
+  default     = "web"
+}
+
+# --- Traefik Service Port
+variable "traefik_service_port" {
+  description = "Service port for Traefik to route to"
+  type        = number
+  default     = 8080
 }
 
 # -------------------------------------------------------------------------------
