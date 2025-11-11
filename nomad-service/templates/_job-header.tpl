@@ -90,6 +90,8 @@ job "[[ var "job_name" . ]]" {
     healthy_deadline  = "[[ $update.healthy_deadline ]]"
     progress_deadline = "[[ $update.progress_deadline ]]"
     auto_revert       = [[ $update.auto_revert ]]
+    auto_promote      = [[ $update.auto_promote ]]
+    canary            = [[ $update.canary ]]
     stagger           = "[[ var "stagger" . | default "30s" ]]"
   }
 

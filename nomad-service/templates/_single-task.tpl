@@ -257,6 +257,9 @@ task "[[ (var "task" .).name ]]" {
     port     = "[[ .port ]]"
     [[- end ]]
     provider = "[[ .provider | default "consul" ]]"
+    [[- if .address_mode ]]
+    address_mode = "[[ .address_mode ]]"
+    [[- end ]]
 
     # --- Tags ---
     tags = [[ .tags | default list | toJson ]]
@@ -293,6 +296,9 @@ task "[[ (var "task" .).name ]]" {
     port     = "[[ (var "task" .).service.port ]]"
     [[- end ]]
     provider = "[[ (var "task" .).service.provider | default "consul" ]]"
+    [[- if (var "task" .).service.address_mode ]]
+    address_mode = "[[ (var "task" .).service.address_mode ]]"
+    [[- end ]]
 
     # --- Tags ---
     tags = [[ (var "task" .).service.tags | default list | toJson ]]
