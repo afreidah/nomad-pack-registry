@@ -24,7 +24,6 @@ job "[[ var "job_name" . ]]" {
     healthy_deadline  = "5m"
     progress_deadline = "10m"
     auto_revert       = true
-    auto_promote      = true
   }
 
   constraint {
@@ -207,41 +206,192 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
         change_mode = "restart"
         perms       = "0644"
         data        = <<-EOT
-[[[tls.certificates]]]
+[tls.certificates.0]
   certFile = "/alloc/data/munchbox.crt"
   keyFile  = "/alloc/data/munchbox.key"
 
-[tls.stores]
-  [tls.stores.default.defaultCertificate]
-    certFile = "/alloc/data/munchbox.crt"
-    keyFile  = "/alloc/data/munchbox.key"
+[tls.stores.default.defaultCertificate]
+  certFile = "/alloc/data/munchbox.crt"
+  keyFile  = "/alloc/data/munchbox.key"
 
-[tls.options]
-  [tls.options.default]
-    minVersion = "VersionTLS12"
-    sniStrict  = true
+[tls.options.default]
+  minVersion = "VersionTLS12"
+  sniStrict  = true
+  curvePreferences = ["CurveP521", "CurveP384"]
+  cipherSuites = [
+    "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+    "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+    "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+    "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+    "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+    "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+  ]
 
-[http.routers]
-  [http.routers.http-redirect]
-    rule        = "HostRegexp(`{host:.+\\.munchbox}`)"
-    entryPoints = ["web"]
-    middlewares = ["redirect-https"]
-    service     = "ping-svc"
-    priority    = 1
+[http.routers.consul]
+  rule        = "Host(`consul.munchbox`)"
+  entryPoints = ["websecure"]
+  service     = "consul-ui"
+  middlewares = ["dashboard-allowlan"]
 
-  [http.routers.ping]
-    rule        = "Host(`traefik.munchbox`) && Path(`/ping`)"
-    entryPoints = ["websecure"]
-    service     = "ping-svc"
+[http.routers.traefik-fallback]
+  rule        = "Host(`traefik.munchbox`) || PathPrefix(`/dashboard`) || PathPrefix(`/api`)"
+  entryPoints = ["traefik"]
+  service     = "api@internal"
+  middlewares = ["dashboard-auth", "dashboard-allowlan", "dashboard-redirect"]
+  priority    = 2
 
-[http.middlewares]
-  [http.middlewares.redirect-https.redirectScheme]
-    scheme = "https"
+[http.routers.resume-public]
+  rule        = "Host(`resume.alexfreidah.com`) || Host(`www.resume.alexfreidah.com`)"
+  entryPoints = ["web"]
+  service     = "nginx-resume"
+  middlewares = ["redirect-resume-www", "resume-sec", "resume-ratelimit", "resume-inflight"]
+  priority    = 100
 
-[http.services]
-  [http.services.ping-svc.loadBalancer]
-    [[[http.services.ping-svc.loadBalancer.servers]]]
-      url = "http://127.0.0.1:[[ var "dashboard_port" . ]]/ping"
+[http.routers.resume-apex-public]
+  rule        = "Host(`alexfreidah.com`) || Host(`www.alexfreidah.com`)"
+  entryPoints = ["web"]
+  service     = "nginx-resume"
+  middlewares = ["redirect-apex-www", "resume-sec", "resume-ratelimit", "resume-inflight"]
+  priority    = 101
+
+[http.routers.redirect-www-to-resume]
+  rule        = "Host(`www.alexfreidah.com`)"
+  entryPoints = ["web"]
+  service     = "ping-svc"
+  middlewares = ["redirect-www-to-resume"]
+  priority    = 110
+
+[http.routers.k3s-status-public]
+  rule        = "Host(`k3s-status.alexfreidah.com`)"
+  entryPoints = ["web"]
+  service     = "health-checker-svc"
+  middlewares = ["k3s-status-sec"]
+  priority    = 102
+
+[http.routers.http-redirect]
+  rule        = "HostRegexp(`{host:.+\\.munchbox}`)"
+  entryPoints = ["web"]
+  middlewares = ["redirect-https"]
+  service     = "ping-svc"
+  priority    = 1
+
+[http.routers.ping]
+  rule        = "Host(`traefik.munchbox`) && Path(`/ping`)"
+  entryPoints = ["websecure"]
+  service     = "ping-svc"
+
+[http.middlewares.dashboard-auth.basicAuth]
+  users = ["alex:$2y$05$2pwj9TDZZ29xWxv.eUAKLeKOhm/RrbbrbNewMkzjg1aGm4Bp81yKS"]
+
+[http.middlewares.dashboard-allowlan.ipAllowList]
+  sourceRange = ["192.168.68.0/24", "127.0.0.1/32"]
+
+[http.middlewares.dashboard-redirect.redirectRegex]
+  regex       = "^https?://traefik\\.munchbox/?$"
+  replacement = "https://traefik.munchbox/dashboard/"
+  permanent   = true
+
+[http.middlewares.redirect-https.redirectScheme]
+  scheme = "https"
+
+[http.middlewares.resume-ratelimit.rateLimit]
+  average = 20
+  burst   = 40
+  [http.middlewares.resume-ratelimit.rateLimit.sourceCriterion]
+    requestHeaderName = "CF-Connecting-IP"
+
+[http.middlewares.resume-sec.headers.customResponseHeaders]
+  Cross-Origin-Embedder-Policy = "unsafe-none"
+  Cross-Origin-Opener-Policy   = "unsafe-none"
+  Cross-Origin-Resource-Policy = "cross-origin"
+
+[http.middlewares.resume-inflight.inFlightReq]
+  amount = 100
+
+[http.middlewares.redirect-resume-www.redirectRegex]
+  regex       = "^https?://www\\.resume\\.alexfreidah\\.com/(.*)"
+  replacement = "https://resume.alexfreidah.com/$1"
+  permanent   = true
+
+[http.middlewares.redirect-apex-www.redirectRegex]
+  regex       = "^https?://www\\.alexfreidah\\.com/(.*)"
+  replacement = "https://alexfreidah.com/$1"
+  permanent   = true
+
+[http.middlewares.redirect-www-to-resume.redirectRegex]
+  regex       = "^https?://www\\.alexfreidah\\.com/(.*)"
+  replacement = "https://resume.alexfreidah.com/$1"
+  permanent   = true
+
+[http.middlewares.resume-sec.headers]
+  stsSeconds           = 31536000
+  stsIncludeSubdomains = true
+  forceSTSHeader       = true
+  stsPreload           = false
+  contentTypeNosniff       = true
+  customFrameOptionsValue  = "SAMEORIGIN"
+  referrerPolicy           = "no-referrer"
+  permissionsPolicy = """
+    geolocation=(), microphone=(), camera=(), usb=(),
+    fullscreen=(self), payment=(), accelerometer=(),
+    gyroscope=(), magnetometer=(), midi=(),
+    picture-in-picture=(), clipboard-read=(), clipboard-write=(),
+    browsing-topics=()
+  """
+  contentSecurityPolicy = """
+    default-src 'self';
+    base-uri 'self';
+    object-src 'none';
+    frame-ancestors 'self';
+    img-src 'self' data: blob:;
+    font-src 'self' data:;
+    style-src 'self' 'unsafe-inline';
+    script-src 'self' 'unsafe-inline';
+    connect-src 'none';
+    form-action 'self';
+    upgrade-insecure-requests;
+  """
+
+[http.middlewares.k3s-status-sec.headers]
+  stsSeconds              = 31536000
+  stsIncludeSubdomains    = true
+  forceSTSHeader          = true
+  stsPreload              = false
+  contentTypeNosniff      = true
+  customFrameOptionsValue = "SAMEORIGIN"
+  referrerPolicy          = "no-referrer"
+  [http.middlewares.k3s-status-sec.headers.customResponseHeaders]
+    Cache-Control                    = "no-store, no-cache, must-revalidate"
+    Pragma                           = "no-cache"
+    Cross-Origin-Embedder-Policy     = "unsafe-none"
+    Cross-Origin-Opener-Policy       = "unsafe-none"
+    Cross-Origin-Resource-Policy     = "cross-origin"
+  contentSecurityPolicy = """
+    default-src 'self' data: blob: https:;
+    base-uri 'self';
+    object-src 'none';
+    frame-ancestors 'self';
+    img-src 'self' data: blob: https:;
+    font-src 'self' data: https:;
+    style-src 'self' 'unsafe-inline' https:;
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https:;
+    connect-src 'self' https: ws: wss: data: blob:;
+    worker-src 'self' blob:;
+    form-action 'self';
+    upgrade-insecure-requests;
+  """
+
+[http.services.consul-ui.loadBalancer.servers.0]
+  url = "http://127.0.0.1:8500/ui/"
+
+[http.services.nginx-resume.loadBalancer.servers.0]
+  url = "http://192.168.68.63:8080"
+
+[http.services.ping-svc.loadBalancer.servers.0]
+  url = "http://127.0.0.1:[[ var "dashboard_port" . ]]/ping"
+
+[http.services.health-checker-svc.loadBalancer.servers.0]
+  url = "http://health-checker.service.consul:18080"
         EOT
       }
 
