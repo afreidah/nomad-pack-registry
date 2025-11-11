@@ -68,12 +68,20 @@ task "[[ (var "task" .).name ]]" {
   config {
     image = "[[ (var "task" .).config.image ]]"
 
+    [[- if (var "task" .).config.entrypoint ]]
+    entrypoint = [[ (var "task" .).config.entrypoint | toJson ]]
+    [[- end ]]
+
     [[- if (var "task" .).config.command ]]
     command = "[[ (var "task" .).config.command ]]"
     [[- end ]]
 
     [[- if (var "task" .).config.args ]]
-    args = [[ (var "task" .).config.args | toJson ]]
+    args = [
+    [[- range (var "task" .).config.args ]]
+      "[[ . ]]",
+    [[- end ]]
+    ]
     [[- end ]]
 
     [[- if (var "task" .).config.ports ]]
@@ -240,7 +248,45 @@ task "[[ (var "task" .).name ]]" {
   # Service Registration
   # -----------------------------------------------------------------------
 
-  [[- if (var "task" .).service ]]
+  [[- if (var "task" .).services ]]
+  # --- Multiple services ---
+  [[- range (var "task" .).services ]]
+  service {
+    name     = "[[ .name ]]"
+    [[- if .port ]]
+    port     = "[[ .port ]]"
+    [[- end ]]
+    provider = "[[ .provider | default "consul" ]]"
+
+    # --- Tags ---
+    tags = [[ .tags | default list | toJson ]]
+
+    # --- Health checks ---
+    [[- range .checks | default list ]]
+    check {
+      name     = "[[ .name ]]"
+      type     = "[[ .type ]]"
+      [[- if .port ]]
+      port     = "[[ .port ]]"
+      [[- end ]]
+      [[- if eq .type "http" ]]
+      path     = "[[ .path ]]"
+      [[- end ]]
+      interval = "[[ .interval | default "10s" ]]"
+      timeout  = "[[ .timeout | default "2s" ]]"
+
+      [[- if .check_restart ]]
+      check_restart {
+        limit = [[ .check_restart.limit | default 3 ]]
+        grace = "[[ .check_restart.grace | default "5s" ]]"
+      }
+      [[- end ]]
+    }
+    [[- end ]]
+  }
+  [[- end ]]
+  [[- else if (var "task" .).service ]]
+  # --- Single service (legacy) ---
   service {
     name     = "[[ (var "task" .).service.name | default (var "job_name" .) ]]"
     [[- if (var "task" .).service.port ]]
