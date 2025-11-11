@@ -101,6 +101,11 @@ task "[[ (var "task" .).name ]]" {
     network_mode = "[[ (var "task" .).config.network_mode ]]"
     [[- end ]]
 
+    # --- Security capabilities ---
+    [[- if (var "task" .).config.cap_add ]]
+    cap_add = [[ (var "task" .).config.cap_add | toJson ]]
+    [[- end ]]
+
     # --- DNS configuration ---
     [[- if (var "task" .).config.dns_servers ]]
     dns_servers = [[ (var "task" .).config.dns_servers | toJson ]]
@@ -117,6 +122,11 @@ task "[[ (var "task" .).name ]]" {
     # --- Volume configuration ---
     [[- if (var "task" .).config.volumes ]]
     volumes = [[ (var "task" .).config.volumes | toJson ]]
+    [[- end ]]
+
+    # --- Device passthrough ---
+    [[- if (var "task" .).config.devices ]]
+    devices = [[ (var "task" .).config.devices | toJson ]]
     [[- end ]]
 
     # --- Traefik labels (auto-generated from traefik block) ---
@@ -148,6 +158,21 @@ task "[[ (var "task" .).name ]]" {
       [[- end ]]
     }
     [[- end ]]
+    [[- end ]]
+  }
+  [[- end ]]
+
+  # -----------------------------------------------------------------------
+  # Driver Configuration - Raw Exec
+  # -----------------------------------------------------------------------
+
+  [[- if eq (var "task" .).driver "raw_exec" ]]
+  config {
+    [[- if (var "task" .).config.command ]]
+    command = "[[ (var "task" .).config.command ]]"
+    [[- end ]]
+    [[- if (var "task" .).config.args ]]
+    args = [[ (var "task" .).config.args | toJson ]]
     [[- end ]]
   }
   [[- end ]]
@@ -244,6 +269,39 @@ task "[[ (var "task" .).name ]]" {
   }
   [[- end ]]
 
+  # --- External file templates (using fileContents) ---
+  [[- if var "external_files" . ]]
+  [[- if (var "external_files" .).enabled ]]
+  [[- $base_path := (var "external_files" .).base_path ]]
+  [[- range var "external_templates" . | default list ]]
+  template {
+    destination = "[[ .destination ]]"
+    [[- if .env ]]
+    env         = [[ .env ]]
+    [[- end ]]
+    [[- if .perms ]]
+    perms       = "[[ .perms ]]"
+    [[- end ]]
+    [[- if .change_mode ]]
+    change_mode = "[[ .change_mode ]]"
+    [[- end ]]
+    [[- if .change_signal ]]
+    change_signal = "[[ .change_signal ]]"
+    [[- end ]]
+    [[- if .left_delimiter ]]
+    left_delimiter  = "[[ .left_delimiter ]]"
+    [[- end ]]
+    [[- if .right_delimiter ]]
+    right_delimiter = "[[ .right_delimiter ]]"
+    [[- end ]]
+    data = <<-EOT
+[[ fileContents (printf "%s/%s" $base_path .source_file) ]]
+    EOT
+  }
+  [[- end ]]
+  [[- end ]]
+  [[- end ]]
+
   # -----------------------------------------------------------------------
   # Service Registration
   # -----------------------------------------------------------------------
@@ -257,9 +315,6 @@ task "[[ (var "task" .).name ]]" {
     port     = "[[ .port ]]"
     [[- end ]]
     provider = "[[ .provider | default "consul" ]]"
-    [[- if .address_mode ]]
-    address_mode = "[[ .address_mode ]]"
-    [[- end ]]
 
     # --- Tags ---
     tags = [[ .tags | default list | toJson ]]
@@ -296,9 +351,6 @@ task "[[ (var "task" .).name ]]" {
     port     = "[[ (var "task" .).service.port ]]"
     [[- end ]]
     provider = "[[ (var "task" .).service.provider | default "consul" ]]"
-    [[- if (var "task" .).service.address_mode ]]
-    address_mode = "[[ (var "task" .).service.address_mode ]]"
-    [[- end ]]
 
     # --- Tags ---
     tags = [[ (var "task" .).service.tags | default list | toJson ]]
@@ -349,7 +401,7 @@ task "[[ (var "task" .).name ]]" {
     [[- if (var "task" .).resources.memory_max ]]
     memory_max = [[ (var "task" .).resources.memory_max ]]
     [[- else ]]
-    memory_max = [[ $resources.memory ]]
+    memory_max = [[ (var "task" .).resources.memory | default $resources.memory ]]
     [[- end ]]
   }
   [[- end ]]

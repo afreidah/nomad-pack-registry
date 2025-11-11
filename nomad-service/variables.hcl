@@ -638,3 +638,54 @@ variable "stagger" {
   type        = string
   default     = "30s"
 }
+
+# -------------------------------------------------------------------------------
+# External File Configuration
+# -------------------------------------------------------------------------------
+
+variable "external_files" {
+  description = "Load templates from external files using fileContents"
+  type = object({
+    enabled   = bool
+    base_path = string
+  })
+  default = {
+    enabled   = false
+    base_path = ""
+  }
+}
+
+variable "external_templates" {
+  description = "External template file paths (relative to base_path)"
+  type = list(object({
+    destination     = string
+    source_file     = string
+    env             = bool
+    perms           = string
+    change_mode     = string
+    change_signal   = string
+    left_delimiter  = string
+    right_delimiter = string
+  }))
+  default = []
+}
+
+# -----------------------------------------------------------------------
+# Periodic Schedule Configuration
+# -----------------------------------------------------------------------
+
+variable "periodic" {
+  description = "Periodic schedule configuration for batch jobs"
+  type = object({
+    enabled          = bool
+    cron             = string
+    prohibit_overlap = bool
+    time_zone        = string
+  })
+  default = {
+    enabled          = false
+    cron             = ""
+    prohibit_overlap = true
+    time_zone        = "UTC"
+  }
+}

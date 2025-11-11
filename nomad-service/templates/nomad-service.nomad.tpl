@@ -39,6 +39,23 @@
 # -----------------------------------------------------------------------
 
 [[ template "job_header" . ]]
+
+  # -----------------------------------------------------------------------
+  # Periodic Schedule (if enabled)
+  # -----------------------------------------------------------------------
+
+  [[- if var "periodic" . ]]
+  [[- if (var "periodic" .).enabled ]]
+  periodic {
+    cron             = "[[ (var "periodic" .).cron ]]"
+    prohibit_overlap = [[ (var "periodic" .).prohibit_overlap | default true ]]
+    [[- if (var "periodic" .).time_zone ]]
+    time_zone        = "[[ (var "periodic" .).time_zone ]]"
+    [[- end ]]
+  }
+  [[- end ]]
+  [[- end ]]
+
   # -----------------------------------------------------------------------
   # Task Group Configuration
   # -----------------------------------------------------------------------

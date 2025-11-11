@@ -36,11 +36,9 @@ job "[[ var "job_name" . ]]" {
   datacenters = [[ var "datacenters" . | toJson ]]
   namespace   = "[[ var "namespace" . ]]"
   priority    = [[ var "priority" . ]]
-
   [[- if ne (var "region" .) "" ]]
   region      = "[[ var "region" . ]]"
   [[- end ]]
-
   [[- if ne (var "node_pool" .) "" ]]
   node_pool   = "[[ var "node_pool" . ]]"
   [[- end ]]
@@ -83,6 +81,7 @@ job "[[ var "job_name" . ]]" {
   # Update Strategy (from deployment profile)
   # -----------------------------------------------------------------------
 
+  [[- if ne (var "job_type" .) "batch" ]]
   update {
     max_parallel      = [[ $update.max_parallel ]]
     health_check      = "[[ $update.health_check ]]"
@@ -94,5 +93,6 @@ job "[[ var "job_name" . ]]" {
     canary            = [[ $update.canary ]]
     stagger           = "[[ var "stagger" . | default "30s" ]]"
   }
+  [[- end ]]
 
 [[- end -]]

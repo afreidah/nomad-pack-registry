@@ -111,6 +111,7 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
   # -----------------------------------------------------------------------
 
   [[- if var "volume" . ]]
+  [[- if (var "volume" .).name ]]
   # --- Persistent volume ---
   volume "[[ (var "volume" .).name ]]" {
     type      = "[[ (var "volume" .).type ]]"
@@ -121,6 +122,7 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
     access_mode     = "[[ (var "volume" .).access_mode | default "single-node-writer" ]]"
     [[- end ]]
   }
+  [[- end ]]
   [[- end ]]
 
   [[- if var "ephemeral_disk" . ]]
