@@ -222,6 +222,24 @@ variable "resource_tiers" {
   }
 }
 
+# --- Generic Resource Overrides (compatibility knobs)
+#     Purpose:
+#     - Some jobs (e.g., promtail, node-exporter) override simple cpu/memory.
+#     - These are optional; templates should prefer resource_tier when set.
+#     - Convention:
+#       - If cpu/memory == 0, ignore and fall back to the selected tier.
+variable "cpu" {
+  description = "Optional: CPU mhz for the primary task (0 = use resource_tier)"
+  type        = number
+  default     = 0
+}
+
+variable "memory" {
+  description = "Optional: Memory MB for the primary task (0 = use resource_tier)"
+  type        = number
+  default     = 0
+}
+
 # -------------------------------------------------------------------------------
 # Deployment Profiles
 # -------------------------------------------------------------------------------
@@ -488,7 +506,7 @@ variable "ephemeral_disk" {
 # Vault & Secrets
 # -------------------------------------------------------------------------------
 
-# --- Vault Integration
+# --- Vault Integration (canonical object)
 variable "vault" {
   description = "Vault workload identity configuration"
   type = object({
@@ -513,6 +531,41 @@ variable "vault" {
     secrets       = {}
     aud           = []
   }
+}
+
+# --- Vault Compatibility Aliases (simple variables used by some jobs)
+#     Purpose:
+#     - Allow overrides like `vault_enabled = true`, `vault_role = "svc"` etc.
+#     - Templates may prefer the canonical `vault` object; aliases can be
+#       used to derive/override that object where helpful.
+variable "vault_enabled" {
+  description = "Alias: enable Vault/OpenBao integration (maps to vault.enabled)"
+  type        = bool
+  default     = false
+}
+
+variable "vault_role" {
+  description = "Alias: primary Vault/OpenBao role/policy (maps to vault.role/policy)"
+  type        = string
+  default     = ""
+}
+
+variable "vault_policies" {
+  description = "Alias: additional Vault policies (supplemental to vault.policy)"
+  type        = list(string)
+  default     = []
+}
+
+variable "vault_change_mode" {
+  description = "Alias: rotation behavior (signal|restart|noop) (maps to vault.change_mode)"
+  type        = string
+  default     = "restart"
+}
+
+variable "vault_change_signal" {
+  description = "Alias: signal sent on rotation when mode = signal (maps to vault.change_signal)"
+  type        = string
+  default     = "SIGTERM"
 }
 
 # -------------------------------------------------------------------------------
@@ -689,3 +742,22 @@ variable "periodic" {
     time_zone        = "UTC"
   }
 }
+
+# -------------------------------------------------------------------------------
+# Prometheus Configuration Paths
+# -------------------------------------------------------------------------------
+# Purpose:
+# - Allow jobs to point Prometheus at host-provided config/rules when desired.
+# - Leave empty to skip mounts; templates should guard on non-empty strings.
+variable "prometheus_config_path" {
+  description = "Absolute host path to prometheus.yml (mounted read-only when set)"
+  type        = string
+  default     = ""
+}
+
+variable "alert_rules_path" {
+  description = "Absolute host path to a directory of alerting rules (mounted RO)"
+  type        = string
+  default     = ""
+}
+
