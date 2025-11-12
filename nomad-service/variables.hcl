@@ -5,7 +5,12 @@
 # Nomad Pack variables for nomad-service. Defines all available configuration
 # options including resource tiers, deployment profiles, constraint presets,
 # and network configurations for the generic service pack.
+#
+# This file is the single source of truth for defaults. It also supports:
+#   - environment overlays (environment, env_defaults)
+#   - component registry (component, component_registry) for DRY jobs
 # -------------------------------------------------------------------------------
+
 
 # -------------------------------------------------------------------------------
 # Job Configuration
@@ -15,6 +20,7 @@
 variable "job_name" {
   description = "Name of the Nomad job"
   type        = string
+  default     = ""
 }
 
 variable "job_description" {
@@ -59,18 +65,17 @@ variable "node_pool" {
   default     = ""
 }
 
+
 # -------------------------------------------------------------------------------
 # Placement & Constraints
 # -------------------------------------------------------------------------------
 
-# --- Node Placement Constraints
 variable "constraints" {
   description = "Placement constraints for task group"
   type        = list(map(string))
   default     = []
 }
 
-# --- Constraint Presets
 variable "constraint_preset" {
   description = "Named constraint preset (mccoy_only, stabler_only, avoid_goren, tier1_nodes, or empty for none)"
   type        = string
@@ -116,18 +121,17 @@ variable "constraint_presets" {
   }
 }
 
+
 # -------------------------------------------------------------------------------
 # Task Configuration
 # -------------------------------------------------------------------------------
 
-# --- Single Task Configuration
 variable "task" {
   description = "Single task configuration"
   type        = map(string)
   default     = {}
 }
 
-# --- Multiple Task Configurations
 variable "tasks" {
   description = "Multiple task configurations"
   type        = list(object({
@@ -137,97 +141,87 @@ variable "tasks" {
   default = []
 }
 
+
 # -------------------------------------------------------------------------------
 # Restart Behavior
 # -------------------------------------------------------------------------------
 
-# --- Restart Attempts
 variable "restart_attempts" {
   description = "Number of restart attempts before giving up"
   type        = number
   default     = 2
 }
 
-# --- Restart Interval
 variable "restart_interval" {
   description = "Time interval for restart attempts"
   type        = string
   default     = "30m"
 }
 
-# --- Restart Delay
 variable "restart_delay" {
   description = "Delay before restarting failed task"
   type        = string
   default     = "15s"
 }
 
-# --- Restart Mode
 variable "restart_mode" {
   description = "Restart mode (fail, delay)"
   type        = string
   default     = "fail"
 }
 
+
 # -------------------------------------------------------------------------------
 # Resource Configuration
 # -------------------------------------------------------------------------------
 
-# --- Resource Tier Selection
 variable "resource_tier" {
   description = "Named resource tier (nano, tiny, small, medium, large, xlarge)"
   type        = string
   default     = "medium"
 }
 
-# --- Resource Tier Presets
 variable "resource_tiers" {
   description = "Predefined resource tiers mapping tier names to CPU/memory/disk"
   type = map(object({
-    cpu             = number
-    memory          = number
-    ephemeral_disk  = number
+    cpu            = number
+    memory         = number
+    ephemeral_disk = number
   }))
   default = {
     nano = {
-      cpu             = 50
-      memory          = 128
-      ephemeral_disk  = 100
+      cpu            = 50
+      memory         = 128
+      ephemeral_disk = 100
     }
     tiny = {
-      cpu             = 100
-      memory          = 256
-      ephemeral_disk  = 200
+      cpu            = 100
+      memory         = 256
+      ephemeral_disk = 200
     }
     small = {
-      cpu             = 250
-      memory          = 512
-      ephemeral_disk  = 500
+      cpu            = 250
+      memory         = 512
+      ephemeral_disk = 500
     }
     medium = {
-      cpu             = 500
-      memory          = 1024
-      ephemeral_disk  = 1000
+      cpu            = 500
+      memory         = 1024
+      ephemeral_disk = 1000
     }
     large = {
-      cpu             = 1000
-      memory          = 2048
-      ephemeral_disk  = 2000
+      cpu            = 1000
+      memory         = 2048
+      ephemeral_disk = 2000
     }
     xlarge = {
-      cpu             = 2000
-      memory          = 4096
-      ephemeral_disk  = 4000
+      cpu            = 2000
+      memory         = 4096
+      ephemeral_disk = 4000
     }
   }
 }
 
-# --- Generic Resource Overrides (compatibility knobs)
-#     Purpose:
-#     - Some jobs (e.g., promtail, node-exporter) override simple cpu/memory.
-#     - These are optional; templates should prefer resource_tier when set.
-#     - Convention:
-#       - If cpu/memory == 0, ignore and fall back to the selected tier.
 variable "cpu" {
   description = "Optional: CPU mhz for the primary task (0 = use resource_tier)"
   type        = number
@@ -240,18 +234,17 @@ variable "memory" {
   default     = 0
 }
 
+
 # -------------------------------------------------------------------------------
 # Deployment Profiles
 # -------------------------------------------------------------------------------
 
-# --- Deployment Profile Selection
 variable "deployment_profile" {
   description = "Named deployment profile (standard, canary, production)"
   type        = string
   default     = "standard"
 }
 
-# --- Deployment Profile Presets
 variable "deployment_profiles" {
   description = "Predefined deployment profiles with update strategies"
   type = map(object({
@@ -262,6 +255,7 @@ variable "deployment_profiles" {
     progress_deadline = string
     auto_revert       = bool
     auto_promote      = bool
+    canary            = number
   }))
   default = {
     standard = {
@@ -272,6 +266,7 @@ variable "deployment_profiles" {
       progress_deadline = "10m"
       auto_revert       = true
       auto_promote      = true
+      canary            = 0
     }
     canary = {
       max_parallel      = 1
@@ -281,6 +276,7 @@ variable "deployment_profiles" {
       progress_deadline = "15m"
       auto_revert       = true
       auto_promote      = false
+      canary            = 1
     }
     production = {
       max_parallel      = 1
@@ -290,22 +286,22 @@ variable "deployment_profiles" {
       progress_deadline = "30m"
       auto_revert       = true
       auto_promote      = false
+      canary            = 0
     }
   }
 }
+
 
 # -------------------------------------------------------------------------------
 # Metadata & Categorization
 # -------------------------------------------------------------------------------
 
-# --- Metadata Profile Selection
 variable "meta_profile" {
   description = "Named meta profile (tier1, tier2, tier3)"
   type        = string
   default     = "tier3"
 }
 
-# --- Metadata Profile Presets
 variable "meta_profiles" {
   description = "Predefined meta profiles for job categorization"
   type = map(object({
@@ -324,14 +320,12 @@ variable "meta_profiles" {
   }
 }
 
-# --- Service Category
 variable "category" {
   description = "Service category (web, database, cache, monitoring, worker)"
   type        = string
   default     = "web"
 }
 
-# --- Category Default Presets
 variable "category_defaults" {
   description = "Category-specific defaults including resource tier and ports"
   type = map(object({
@@ -353,7 +347,7 @@ variable "category_defaults" {
     }
     monitoring = {
       resource_tier = "small"
-      ports         = []
+      ports         = ["http"]
     }
     worker = {
       resource_tier = "small"
@@ -362,18 +356,17 @@ variable "category_defaults" {
   }
 }
 
+
 # -------------------------------------------------------------------------------
 # Reschedule Policies
 # -------------------------------------------------------------------------------
 
-# --- Reschedule Preset Selection
 variable "reschedule_preset" {
   description = "Named reschedule preset (standard, aggressive, stateful)"
   type        = string
   default     = "standard"
 }
 
-# --- Reschedule Policy Presets
 variable "reschedule_presets" {
   description = "Predefined reschedule policies"
   type = map(object({
@@ -404,18 +397,17 @@ variable "reschedule_presets" {
   }
 }
 
+
 # -------------------------------------------------------------------------------
 # Network Configuration
 # -------------------------------------------------------------------------------
 
-# --- Network Preset Selection
 variable "network_preset" {
   description = "Named network preset (bridge, host)"
   type        = string
   default     = "bridge"
 }
 
-# --- Network Preset Definitions
 variable "network_presets" {
   description = "Predefined network modes"
   type = map(object({
@@ -431,18 +423,17 @@ variable "network_presets" {
   }
 }
 
-# --- DNS Servers
 variable "dns_servers" {
   description = "DNS servers for task group"
   type        = list(string)
-  default     = ["172.17.0.1"]
+  default     = ["192.168.68.62", "192.168.68.64"]
 }
+
 
 # -------------------------------------------------------------------------------
 # Network Ports
 # -------------------------------------------------------------------------------
 
-# --- Port Definitions
 variable "ports" {
   description = "Network port definitions for task group"
   type = list(object({
@@ -453,30 +444,33 @@ variable "ports" {
   default = []
 }
 
+
 # -------------------------------------------------------------------------------
 # Storage & Volumes
 # -------------------------------------------------------------------------------
 
-# --- Volume Definition
 variable "volume" {
   description = "Task group volume mount configuration"
   type = object({
-    name       = string
-    type       = string
-    source     = string
-    read_only  = bool
-    mount_path = string
+    name            = string
+    type            = string
+    source          = string
+    read_only       = bool
+    mount_path      = string
+    attachment_mode = string
+    access_mode     = string
   })
   default = {
-    name       = ""
-    type       = ""
-    source     = ""
-    read_only  = false
-    mount_path = ""
+    name            = ""
+    type            = ""
+    source          = ""
+    read_only       = false
+    mount_path      = ""
+    attachment_mode = ""
+    access_mode     = ""
   }
 }
 
-# --- Additional Volume Mounts
 variable "volume_mounts" {
   description = "Additional volume mounts for task"
   type = list(object({
@@ -487,7 +481,6 @@ variable "volume_mounts" {
   default = []
 }
 
-# --- Ephemeral Disk
 variable "ephemeral_disk" {
   description = "Ephemeral disk configuration"
   type = object({
@@ -502,11 +495,11 @@ variable "ephemeral_disk" {
   }
 }
 
+
 # -------------------------------------------------------------------------------
 # Vault & Secrets
 # -------------------------------------------------------------------------------
 
-# --- Vault Integration (canonical object)
 variable "vault" {
   description = "Vault workload identity configuration"
   type = object({
@@ -533,11 +526,6 @@ variable "vault" {
   }
 }
 
-# --- Vault Compatibility Aliases (simple variables used by some jobs)
-#     Purpose:
-#     - Allow overrides like `vault_enabled = true`, `vault_role = "svc"` etc.
-#     - Templates may prefer the canonical `vault` object; aliases can be
-#       used to derive/override that object where helpful.
 variable "vault_enabled" {
   description = "Alias: enable Vault/OpenBao integration (maps to vault.enabled)"
   type        = bool
@@ -568,64 +556,58 @@ variable "vault_change_signal" {
   default     = "SIGTERM"
 }
 
+
 # -------------------------------------------------------------------------------
 # Traefik Routing
 # -------------------------------------------------------------------------------
 
-# --- Traefik Enable
 variable "traefik_enable" {
   description = "Enable Traefik service routing"
   type        = bool
   default     = false
 }
 
-# --- Traefik Internal Hostname
 variable "traefik_internal_host" {
   description = "Internal hostname for munchbox domain (e.g., 'resume' for resume.munchbox)"
   type        = string
   default     = ""
 }
 
-# --- Traefik External Hosts
 variable "traefik_external_hosts" {
   description = "External hostnames for public routing (e.g., ['alexfreidah.com', 'www.alexfreidah.com'])"
   type        = list(string)
   default     = []
 }
 
-# --- Traefik Internal Middlewares
 variable "traefik_internal_middlewares" {
   description = "Middlewares to apply to internal routes"
   type        = list(string)
   default     = []
 }
 
-# --- Traefik Internal Entrypoint
 variable "traefik_internal_entrypoint" {
   description = "Entrypoint for internal routes (websecure, web, etc)"
   type        = string
   default     = "websecure"
 }
 
-# --- Traefik External Entrypoint
 variable "traefik_external_entrypoint" {
   description = "Entrypoint for external routes (web, websecure, etc)"
   type        = string
   default     = "web"
 }
 
-# --- Traefik Service Port
 variable "traefik_service_port" {
   description = "Service port for Traefik to route to"
   type        = number
   default     = 8080
 }
 
+
 # -------------------------------------------------------------------------------
 # Logging Configuration
 # -------------------------------------------------------------------------------
 
-# --- Log Retention
 variable "log_max_files" {
   description = "Maximum number of log files to retain"
   type        = number
@@ -638,59 +620,57 @@ variable "log_max_file_size" {
   default     = 10
 }
 
+
 # -------------------------------------------------------------------------------
 # Task Group Configuration
 # -------------------------------------------------------------------------------
 
-# --- Task Group Name
 variable "group_name" {
   description = "Task group name (defaults to job name)"
   type        = string
   default     = ""
 }
 
-# --- Task Group Count
 variable "count" {
   description = "Number of task group instances"
   type        = number
   default     = 1
 }
 
+
 # -------------------------------------------------------------------------------
 # Network Hostname
 # -------------------------------------------------------------------------------
 
-# --- Network Hostname
 variable "network_hostname" {
   description = "Hostname for task group network namespace"
   type        = string
   default     = ""
 }
 
-# --- DNS Search Domains
 variable "dns_searches" {
   description = "DNS search domains for task group"
   type        = list(string)
   default     = []
 }
 
-# --- DNS Options
 variable "dns_options" {
   description = "DNS resolver options"
   type        = list(string)
   default     = []
 }
 
+
 # -------------------------------------------------------------------------------
 # Job Update Strategy
 # -------------------------------------------------------------------------------
 
-# --- Stagger Delay
 variable "stagger" {
   description = "Time between task updates during rolling deployment"
   type        = string
   default     = "30s"
 }
+
 
 # -------------------------------------------------------------------------------
 # External File Configuration
@@ -723,6 +703,7 @@ variable "external_templates" {
   default = []
 }
 
+
 # -----------------------------------------------------------------------
 # Periodic Schedule Configuration
 # -----------------------------------------------------------------------
@@ -743,12 +724,11 @@ variable "periodic" {
   }
 }
 
+
 # -------------------------------------------------------------------------------
 # Prometheus Configuration Paths
 # -------------------------------------------------------------------------------
-# Purpose:
-# - Allow jobs to point Prometheus at host-provided config/rules when desired.
-# - Leave empty to skip mounts; templates should guard on non-empty strings.
+
 variable "prometheus_config_path" {
   description = "Absolute host path to prometheus.yml (mounted read-only when set)"
   type        = string
@@ -761,3 +741,192 @@ variable "alert_rules_path" {
   default     = ""
 }
 
+
+# -------------------------------------------------------------------------------
+# Standard Service Shortcut (Generated HTTP Check)
+# -------------------------------------------------------------------------------
+
+variable "standard_http_check_enabled" {
+  description = "Enable a default service with a single HTTP check"
+  type        = bool
+  default     = false
+}
+
+variable "standard_http_check_port" {
+  description = "Port label for the default HTTP check"
+  type        = string
+  default     = "http"
+}
+
+variable "standard_http_check_path" {
+  description = "HTTP path for the default check"
+  type        = string
+  default     = "/ready"
+}
+
+variable "standard_service_name" {
+  description = "Optional override for generated service name (defaults to job_name)"
+  type        = string
+  default     = ""
+}
+
+
+# -------------------------------------------------------------------------------
+# Service-specific Compatibility Variables
+# -------------------------------------------------------------------------------
+
+variable "loki_address" {
+  description = "Destination Loki push endpoint for log shipping"
+  type        = string
+  default     = ""
+}
+
+variable "http_port" {
+  description = "Optional HTTP listener port for services that expose a metrics/status endpoint"
+  type        = number
+  default     = 0
+}
+
+
+# -------------------------------------------------------------------------------
+# Environment Overlays
+# -------------------------------------------------------------------------------
+
+variable "environment" {
+  description = "Optional environment key to load from env_defaults (e.g., dev, home, prod)"
+  type        = string
+  default     = ""
+}
+
+variable "env_defaults" {
+  description = "Per-environment defaults that can override common vars"
+  type = map(object({
+    namespace   = string
+    node_pool   = string
+    datacenters = list(string)
+    dns_servers = list(string)
+  }))
+  default = {}
+}
+
+
+# -------------------------------------------------------------------------------
+# Component Registry Selection
+# -------------------------------------------------------------------------------
+
+variable "component" {
+  description = "Logical component key to load from component_registry"
+  type        = string
+  default     = ""
+}
+
+variable "component_registry" {
+  description = "Registry of component definitions used to auto-populate pack vars"
+  type = map(object({
+    # -----------------------------------------------------------------------
+    # Group-level configuration
+    # -----------------------------------------------------------------------
+
+    # job-wide type override (service | system | batch | sysbatch)
+    job_type = string
+
+    ports = list(object({
+      name   = string
+      static = number
+      port   = number
+    }))
+
+    external_files = object({
+      enabled   = bool
+      base_path = string
+    })
+
+    external_templates = list(object({
+      destination     = string
+      source_file     = string
+      env             = bool
+      perms           = string
+      change_mode     = string
+      change_signal   = string
+      left_delimiter  = string
+      right_delimiter = string
+    }))
+
+    # -----------------------------------------------------------------------
+    # Standard HTTP health check parameters (used by single_task.tpl)
+    # -----------------------------------------------------------------------
+    standard_http_check_enabled = bool
+    standard_http_check_port    = string
+    standard_http_check_path    = string
+    standard_service_name       = string
+
+    # -----------------------------------------------------------------------
+    # Traefik-related configuration
+    # -----------------------------------------------------------------------
+    traefik_enable              = bool
+    traefik_internal_host       = string
+    traefik_internal_entrypoint = string
+    traefik_service_port        = number
+
+    # -----------------------------------------------------------------------
+    # Task definition (fully explicit typing)
+    # -----------------------------------------------------------------------
+    task = object({
+      name    = string
+      driver  = string
+
+      config = object({
+        image              = string
+        args               = list(string)
+        ports              = list(string)
+        volumes            = list(string)
+        entrypoint         = list(string)
+        command            = string
+        devices            = list(string)
+        network_mode       = string
+        force_pull         = bool
+        image_pull_timeout = string
+        dns_servers        = list(string)
+        dns_search_domains = list(string)
+        dns_options        = list(string)
+        cap_add            = list(string)
+      })
+
+      env = map(string)
+
+      templates = list(object({
+        destination   = string
+        data          = string
+        env           = bool
+        perms         = string
+        change_mode   = string
+        change_signal = string
+      }))
+
+      volume_mounts = list(object({
+        volume      = string
+        destination = string
+        read_only   = bool
+      }))
+
+      resources = object({
+        tier       = string
+        cpu        = number
+        memory     = number
+        memory_max = number
+      })
+
+      restart = object({
+        attempts = number
+        interval = string
+        delay    = string
+        mode     = string
+      })
+
+      kill_timeout   = string
+      kill_signal    = string
+      shutdown_delay = string
+    })
+  }))
+  default = {}
+}

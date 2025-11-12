@@ -3,10 +3,6 @@
 # Author: Alex Freidah
 # -------------------------------------------------------------------------------
 # Task Group Configuration
-#
-# Defines task group-level settings including networking, storage, placement
-# constraints, and restart/reschedule policies. These apply to all tasks in
-# the group.
 # -------------------------------------------------------------------------------
 
 [[- define "group_config" -]]
@@ -27,11 +23,33 @@
 [[- $reschedule_presets := var "reschedule_presets" . ]]
 [[- $reschedule := index $reschedule_presets $reschedule_preset ]]
 
+# --- Component pointer (advisory, no mutation) ---
+[[- $component_key := var "component" . ]]
+[[- $component_registry := var "component_registry" . ]]
+[[- $c := index $component_registry $component_key ]]
+
+# --- Environment overlay pointer (advisory, no mutation) ---
+[[- $env_key := var "environment" . ]]
+[[- $env_defaults := var "env_defaults" . ]]
+[[- $ed := index $env_defaults $env_key ]]
+
+# --- Effective ports (prefer var "ports", else component ports, else empty) ---
+[[- $ports := (var "ports" .) ]]
+[[- if and (not $ports) $c $c.ports ]]
+[[- $ports = $c.ports ]]
+[[- end ]]
+
+# --- Effective DNS (prefer var dns_servers, else env overlay, else default) ---
+[[- $dns := (var "dns_servers" . | default (list "192.168.68.62" "192.168.68.64")) ]]
+[[- if and (not (var "dns_servers" .)) $ed $ed.dns_servers ]]
+[[- $dns = $ed.dns_servers ]]
+[[- end ]]
+
 # -----------------------------------------------------------------------
 # Task Group Definition
 # -----------------------------------------------------------------------
 
-group "[[ var "group_name" . | default (var "job_name" .) ]]" {
+group "[[ var "group_name" . | default (var "job_name" . | default (var "component" .)) ]]" {
 
   count = [[ var "count" . | default 1 ]]
 
@@ -47,7 +65,7 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
     [[- end ]]
 
     # --- Port definitions ---
-    [[- range var "ports" . | default list ]]
+    [[- range $ports | default list ]]
     port "[[ .name ]]" {
       [[- if .static ]]
       static = [[ .static ]]
@@ -63,7 +81,7 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
 
     # --- DNS configuration ---
     dns {
-      servers  = [[ var "dns_servers" . | default (list "172.17.0.1") | toJson ]]
+      servers = [[ $dns | toJson ]]
       [[- if var "dns_searches" . ]]
       searches = [[ var "dns_searches" . | toJson ]]
       [[- end ]]
@@ -112,7 +130,6 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
 
   [[- if var "volume" . ]]
   [[- if (var "volume" .).name ]]
-  # --- Persistent volume ---
   volume "[[ (var "volume" .).name ]]" {
     type      = "[[ (var "volume" .).type ]]"
     source    = "[[ (var "volume" .).source ]]"
@@ -127,7 +144,6 @@ group "[[ var "group_name" . | default (var "job_name" .) ]]" {
 
   [[- if var "ephemeral_disk" . ]]
   [[- if (var "ephemeral_disk" .).size ]]
-  # --- Ephemeral disk ---
   ephemeral_disk {
     size    = [[ (var "ephemeral_disk" .).size ]]
     migrate = [[ (var "ephemeral_disk" .).migrate | default false ]]

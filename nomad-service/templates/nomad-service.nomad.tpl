@@ -34,6 +34,16 @@
 [[- $network_presets := var "network_presets" . ]]
 [[- $network := index $network_presets $network_preset ]]
 
+# --- Resolve component pointer (advisory only; no mutation) ---
+[[- $component_key := var "component" . ]]
+[[- $component_registry := var "component_registry" . ]]
+[[- $c := index $component_registry $component_key ]]
+
+# --- Resolve environment overlay (advisory only; no mutation) ---
+[[- $env_key := var "environment" . ]]
+[[- $env_defaults := var "env_defaults" . ]]
+[[- $ed := index $env_defaults $env_key ]]
+
 # -----------------------------------------------------------------------
 # Job Definition (includes helper templates)
 # -----------------------------------------------------------------------
@@ -61,9 +71,10 @@
   # -----------------------------------------------------------------------
   [[ template "group_config" . ]]
     # --- Tasks ---
-    [[- if var "task" . ]]
+    [[- if or (var "task" .) (and $c $c.task) ]]
     [[ template "single_task" . ]]
     [[- end ]]
+
     [[- if var "tasks" . ]]
     [[ template "multi_task" . ]]
     [[- end ]]
