@@ -46,9 +46,6 @@ job "[[ $job_name ]]" {
   datacenters = [[ var "datacenters" . | toJson ]]
   namespace   = "[[ var "namespace" . ]]"
   priority    = [[ var "priority" . ]]
-  [[- if ne (var "region" .) "" ]]
-  region      = "[[ var "region" . ]]"
-  [[- end ]]
   [[- if ne (var "node_pool" .) "" ]]
   node_pool   = "[[ var "node_pool" . ]]"
   [[- end ]]

@@ -1,3 +1,4 @@
+# packs/registry/nomad-service/variables.hcl
 # -------------------------------------------------------------------------------
 # Variables for nomad-service pack
 #
@@ -40,9 +41,9 @@ variable "job_description" {
 }
 
 variable "region" {
-  description = "Region for job deployment"
+  description = "Nomad region for job placement. Leave empty for single-region/local clusters."
   type        = string
-  default     = "global"
+  default     = ""
 }
 
 variable "datacenters" {
@@ -121,12 +122,6 @@ variable "ports" {
   description = "Port definitions"
   # NO TYPE
   default = []
-}
-
-variable "dns_servers" {
-  description = "DNS servers for the job"
-  type        = list(string)
-  default     = []
 }
 
 # --- Storage ---
@@ -383,4 +378,36 @@ variable "env_defaults" {
   description = "Environment-specific defaults"
   # NO TYPE
   default = {}
+}
+
+# --- Hostname injection toggle (NEW) ---
+variable "use_node_hostname" {
+  description = "If true, inject HOSTNAME from node.unique.name into the task env"
+  type        = bool
+  default     = false
+}
+
+# --- External config content injection (optional) ---
+variable "config_yaml" {
+  description = "Full contents of the external config (e.g., Promtail YAML). If set, this overrides external_files/source_file."
+  type        = string
+  default     = ""
+}
+
+variable "dns_servers" {
+  description = "DNS servers for the job"
+  type        = list(string)
+  default     = []
+}
+
+variable "dns_searches" {
+  description = "DNS search domains"
+  type        = list(string)
+  default     = []
+}
+
+variable "dns_options" {
+  description = "DNS options"
+  type        = list(string)
+  default     = []
 }
