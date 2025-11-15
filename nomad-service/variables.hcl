@@ -91,9 +91,9 @@ variable "count" {
 
 # --- Constraints ---
 variable "constraints" {
-  description = "Job-level placement constraints"
-  # NO TYPE
-  default = []
+  description = "List of constraints for job placement"
+  type        = list(map(string))
+  default     = []
 }
 
 variable "group_constraints" {
@@ -182,6 +182,30 @@ variable "external_templates" {
 }
 
 # --- Service configuration ---
+variable "standard_service_enabled" {
+  description = "Enable standard service with automatic Traefik configuration"
+  type        = bool
+  default     = false
+}
+
+variable "standard_service_port" {
+  description = "Port name for standard service"
+  type        = string
+  default     = ""
+}
+
+variable "standard_service_port_number" {
+  description = "Port number for Traefik loadbalancer configuration"
+  type        = number
+  default     = 0
+}
+
+variable "additional_tags" {
+  description = "Additional Consul tags to append to standard service"
+  type        = list(string)
+  default     = []
+}
+
 variable "standard_http_check_enabled" {
   description = "Enable standard HTTP health check"
   type        = bool
@@ -274,6 +298,7 @@ variable "deployment_profiles" {
       progress_deadline = "10m"
       auto_revert       = true
       auto_promote      = true
+      canary            = 1
     }
   }
 }
@@ -380,20 +405,21 @@ variable "env_defaults" {
   default = {}
 }
 
-# --- Hostname injection toggle (NEW) ---
+# --- Hostname injection toggle ---
 variable "use_node_hostname" {
   description = "If true, inject HOSTNAME from node.unique.name into the task env"
   type        = bool
   default     = false
 }
 
-# --- External config content injection (optional) ---
+# --- External config content injection ---
 variable "config_yaml" {
   description = "Full contents of the external config (e.g., Promtail YAML). If set, this overrides external_files/source_file."
   type        = string
   default     = ""
 }
 
+# --- DNS configuration ---
 variable "dns_servers" {
   description = "DNS servers for the job"
   type        = list(string)
@@ -410,4 +436,10 @@ variable "dns_options" {
   description = "DNS options"
   type        = list(string)
   default     = []
+}
+
+variable "vault_role" {
+  description = "Vault role for the job (enables Vault integration when set)"
+  type        = string
+  default     = ""
 }

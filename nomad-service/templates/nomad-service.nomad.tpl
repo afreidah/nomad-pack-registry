@@ -26,17 +26,27 @@ job "[[ var "job_name" . ]]" {
   [[- end ]]
 
   [[- if eq (var "job_type" .) "service" ]]
-  [[- if var "deployment_profile" . ]]
+  [[- $deployment_profile := (var "deployment_profile" .) ]]
+  [[- $deployment_profiles := (var "deployment_profiles" . | default dict) ]]
+  [[- if and $deployment_profile (index $deployment_profiles $deployment_profile) ]]
+  [[- $profile := index $deployment_profiles $deployment_profile ]]
   # --- Job update strategy ---
   update {
-    max_parallel      = 1
-    health_check      = "checks"
-    min_healthy_time  = "30s"
-    healthy_deadline  = "5m"
-    progress_deadline = "10m"
-    auto_revert       = true
-    auto_promote      = true
-    stagger           = "30s"
+    max_parallel      = [[ $profile.max_parallel | default 1 ]]
+    [[- if $profile.canary ]]
+    canary            = [[ $profile.canary ]]
+    [[- end ]]
+    health_check      = "[[ $profile.health_check | default "checks" ]]"
+    min_healthy_time  = "[[ $profile.min_healthy_time | default "30s" ]]"
+    healthy_deadline  = "[[ $profile.healthy_deadline | default "5m" ]]"
+    progress_deadline = "[[ $profile.progress_deadline | default "10m" ]]"
+    auto_revert       = [[ $profile.auto_revert | default true ]]
+    [[- if $profile.auto_promote ]]
+    auto_promote      = [[ $profile.auto_promote ]]
+    [[- end ]]
+    [[- if $profile.stagger ]]
+    stagger           = "[[ $profile.stagger ]]"
+    [[- end ]]
   }
   [[- end ]]
   [[- else if eq (var "job_type" .) "system" ]]
@@ -57,6 +67,29 @@ job "[[ var "job_name" . ]]" {
   group "[[ var "job_name" . ]]" {
     [[- if eq (var "job_type" .) "service" ]]
     count = [[ var "count" . | default 1 ]]
+    [[- end ]]
+
+    [[- if var "constraints" . ]]
+    # --- Placement constraints ---
+    [[- range var "constraints" . ]]
+    constraint {
+      [[- if .attribute ]]
+      attribute = "[[ .attribute ]]"
+      [[- end ]]
+      [[- if .operator ]]
+      operator  = "[[ .operator ]]"
+      [[- end ]]
+      [[- if .value ]]
+      value     = "[[ .value ]]"
+      [[- end ]]
+      [[- if .version ]]
+      version   = "[[ .version ]]"
+      [[- end ]]
+      [[- if .regexp ]]
+      regexp    = "[[ .regexp ]]"
+      [[- end ]]
+    }
+    [[- end ]]
     [[- end ]]
 
     # --- Network configuration ---
@@ -87,6 +120,16 @@ job "[[ var "job_name" . ]]" {
       }
       [[- end ]]
     }
+
+    [[- $vol := var "volume" . ]]
+    [[- if and $vol (index $vol "name") ]]
+    # --- Persistent storage volume ---
+    volume "[[ index $vol "name" ]]" {
+      type      = "[[ index $vol "type" ]]"
+      source    = "[[ index $vol "source" ]]"
+      read_only = [[ index $vol "read_only" | default false ]]
+    }
+    [[- end ]]
 
     [[- if var "restart_attempts" . ]]
     # --- Task restart behavior ---
@@ -130,14 +173,36 @@ job "[[ var "job_name" . ]]" {
       user = "[[ index $task "user" ]]"
       [[- end ]]
 
+      [[- if ne (var "vault_role" .) "" ]]
+      # --- Workload identity ---
+      identity {
+        env  = true
+        file = true
+        aud  = ["vault.io"]
+      }
+
+      # --- Vault integration ---
+      vault {
+        role = "[[ var "vault_role" . ]]"
+      }
+      [[- end ]]
+
       [[- if eq (index $task "driver") "docker" ]]
       # --- Docker image configuration ---
       [[- $cfg := (index $task "config") ]]
       config {
         image = "[[ index $cfg "image" ]]"
 
+        [[- if (index $cfg "image_pull_timeout") ]]
+        image_pull_timeout = "[[ index $cfg "image_pull_timeout" ]]"
+        [[- end ]]
+
         [[- if eq $network_preset "host" ]]
         network_mode = "host"
+        [[- end ]]
+
+        [[- if (index $cfg "pid_mode") ]]
+        pid_mode = "[[ index $cfg "pid_mode" ]]"
         [[- end ]]
 
         [[- if (index $cfg "ports") ]]
@@ -160,6 +225,10 @@ job "[[ var "job_name" . ]]" {
         args = [[ (index $cfg "args") | toJson ]]
         [[- end ]]
 
+        [[- if (index $cfg "entrypoint") ]]
+        entrypoint = [[ (index $cfg "entrypoint") | toJson ]]
+        [[- end ]]
+
         [[- if (index $cfg "volumes") ]]
         volumes = [[ (index $cfg "volumes") | toJson ]]
         [[- end ]]
@@ -175,6 +244,35 @@ job "[[ var "job_name" . ]]" {
         [[- if (index $cfg "cap_add") ]]
         cap_add = [[ (index $cfg "cap_add") | toJson ]]
         [[- end ]]
+
+        [[- if (index $cfg "devices") ]]
+        devices = [[ (index $cfg "devices") | toJson ]]
+        [[- end ]]
+
+        [[- if (index $cfg "extra_hosts") ]]
+        extra_hosts = [[ (index $cfg "extra_hosts") | toJson ]]
+        [[- end ]]
+      }
+      [[- else if or (eq (index $task "driver") "raw_exec") (eq (index $task "driver") "exec") ]]
+      # --- Exec/Raw_exec configuration ---
+      [[- $cfg := (index $task "config") ]]
+      config {
+        [[- if (index $cfg "command") ]]
+        command = "[[ index $cfg "command" ]]"
+        [[- end ]]
+        [[- if (index $cfg "args") ]]
+        args = [[ (index $cfg "args") | toJson ]]
+        [[- end ]]
+      }
+      [[- end ]]
+
+      [[- $vol := var "volume" . ]]
+      [[- if and $vol (index $vol "name") ]]
+      # --- Volume mount ---
+      volume_mount {
+        volume      = "[[ index $vol "name" ]]"
+        destination = "[[ index $vol "mount_path" ]]"
+        read_only   = [[ index $vol "read_only" | default false ]]
       }
       [[- end ]]
 
@@ -183,7 +281,16 @@ job "[[ var "job_name" . ]]" {
       [[- range $ext ]]
       template {
         destination     = "[[ .destination ]]"
+        [[- if .env ]]
+        env             = [[ .env ]]
+        [[- end ]]
+        [[- if .perms ]]
+        perms           = "[[ .perms ]]"
+        [[- end ]]
         change_mode     = "[[ .change_mode ]]"
+        [[- if .change_signal ]]
+        change_signal   = "[[ .change_signal ]]"
+        [[- end ]]
         [[- if .left_delimiter ]]
         left_delimiter  = "[[ .left_delimiter ]]"
         [[- end ]]
@@ -192,13 +299,13 @@ job "[[ var "job_name" . ]]" {
         [[- end ]]
 
         [[- if .source_file ]]
-        data = <<-YAML
+        data = <<-EOT
 [[ fileContents (printf "%s/%s" $ef_base .source_file) ]]
-YAML
+EOT
         [[- else if .data ]]
-        data = <<-EOF
+        data = <<-EOT
 [[ .data ]]
-EOF
+EOT
         [[- end ]]
       }
       [[- end ]]
@@ -222,20 +329,98 @@ EOF
       [[- end ]]
 
       # --- Service registration ---
-      [[- if var "standard_http_check_enabled" . ]]
+      [[- if var "standard_service_enabled" . ]]
+      # --- Standard service with automatic Traefik configuration ---
       service {
-        name     = "[[ var "standard_service_name" . ]]"
-        port     = "[[ var "standard_http_check_port" . ]]"
+        name     = "[[ var "job_name" . ]]"
+        port     = "[[ var "standard_service_port" . ]]"
         provider = "consul"
-        tags     = [[ var "service_tags" . | toJson ]]
+        tags = [
+          "traefik.enable=true",
+          "traefik.http.routers.[[ var "job_name" . ]].rule=Host(`[[ var "job_name" . ]].munchbox`)",
+          "traefik.http.routers.[[ var "job_name" . ]].entrypoints=websecure",
+          "traefik.http.routers.[[ var "job_name" . ]].tls=true",
+          "traefik.http.routers.[[ var "job_name" . ]].middlewares=dashboard-allowlan@file",
+          "traefik.http.services.[[ var "job_name" . ]].loadbalancer.server.port=[[ var "standard_service_port_number" . ]]",
+          [[- range var "additional_tags" . | default list ]]
+          "[[ . ]]",
+          [[- end ]]
+        ]
 
+        [[- if var "standard_http_check_enabled" . ]]
         check {
           name     = "[[ var "job_name" . ]]-ready"
           type     = "http"
-          path     = "[[ var "standard_http_check_path" . ]]"
+          path     = "[[ var "standard_http_check_path" . | default "/" ]]"
           interval = "10s"
           timeout  = "3s"
         }
+        [[- end ]]
+      }
+      [[- else if (index $task "services") ]]
+      # --- Multiple services ---
+      [[- range (index $task "services") ]]
+      service {
+        name     = "[[ .name ]]"
+        [[- if .port ]]
+        port     = "[[ .port ]]"
+        [[- end ]]
+        provider = "[[ .provider | default "consul" ]]"
+        tags     = [[ .tags | default list | toJson ]]
+
+        [[- range .checks | default list ]]
+        check {
+          name     = "[[ .name ]]"
+          type     = "[[ .type ]]"
+          [[- if .port ]]
+          port     = "[[ .port ]]"
+          [[- end ]]
+          [[- if eq .type "http" ]]
+          path     = "[[ .path ]]"
+          [[- end ]]
+          interval = "[[ .interval | default "10s" ]]"
+          timeout  = "[[ .timeout | default "2s" ]]"
+          [[- if .check_restart ]]
+          check_restart {
+            limit = [[ .check_restart.limit | default 3 ]]
+            grace = "[[ .check_restart.grace | default "5s" ]]"
+          }
+          [[- end ]]
+        }
+        [[- end ]]
+      }
+      [[- end ]]
+      [[- else if (index $task "service") ]]
+      # --- Single service ---
+      [[- $svc := (index $task "service") ]]
+      service {
+        name     = "[[ index $svc "name" ]]"
+        [[- if index $svc "port" ]]
+        port     = "[[ index $svc "port" ]]"
+        [[- end ]]
+        provider = "[[ index $svc "provider" | default "consul" ]]"
+        tags     = [[ index $svc "tags" | default list | toJson ]]
+
+        [[- range index $svc "checks" | default list ]]
+        check {
+          name     = "[[ .name ]]"
+          type     = "[[ .type ]]"
+          [[- if .port ]]
+          port     = "[[ .port ]]"
+          [[- end ]]
+          [[- if eq .type "http" ]]
+          path     = "[[ .path ]]"
+          [[- end ]]
+          interval = "[[ .interval | default "10s" ]]"
+          timeout  = "[[ .timeout | default "2s" ]]"
+          [[- if .check_restart ]]
+          check_restart {
+            limit = [[ .check_restart.limit | default 3 ]]
+            grace = "[[ .check_restart.grace | default "5s" ]]"
+          }
+          [[- end ]]
+        }
+        [[- end ]]
       }
       [[- end ]]
 
