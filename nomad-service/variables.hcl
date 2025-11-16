@@ -46,7 +46,7 @@ variable "namespace" {
 variable "node_pool" {
   description = "Node pool for job placement"
   type        = string
-  default     = ""
+  default     = "all"
 }
 
 variable "priority" {
