@@ -1,31 +1,16 @@
-# packs/registry/nomad-service/variables.hcl
 # -------------------------------------------------------------------------------
-# Variables for nomad-service pack
+# nomad-service Pack Variables
 #
 # Project: Munchbox / Author: Alex Freidah
-#
-# NO TYPE SPECIFICATIONS FOR COMPLEX VARIABLES
-# Nomad-pack doesn't support 'any' or complex nested types
 # -------------------------------------------------------------------------------
 
-# --- Component selection ---
-variable "component" {
-  description = "Name of component from component_registry to deploy"
-  type        = string
-  default     = ""
-}
+# -------------------------------------------------------------------------------
+# Job Configuration
+# -------------------------------------------------------------------------------
 
-variable "component_registry" {
-  description = "Registry of predefined component configurations"
-  # NO TYPE - nomad-pack can't handle complex types
-  default = {}
-}
-
-# --- Job configuration ---
 variable "job_name" {
   description = "Name of the Nomad job"
   type        = string
-  default     = ""
 }
 
 variable "job_type" {
@@ -35,21 +20,21 @@ variable "job_type" {
 }
 
 variable "job_description" {
-  description = "Description for the job"
+  description = "Job description for documentation"
   type        = string
   default     = ""
 }
 
 variable "region" {
-  description = "Nomad region for job placement. Leave empty for single-region/local clusters."
+  description = "Nomad region"
   type        = string
-  default     = ""
+  default     = "global"
 }
 
 variable "datacenters" {
   description = "List of datacenters"
   type        = list(string)
-  default     = ["dc1"]
+  default     = ["pi-dc"]
 }
 
 variable "namespace" {
@@ -71,17 +56,14 @@ variable "priority" {
 }
 
 variable "category" {
-  description = "Service category for tagging"
-  type        = string
-  default     = "service"
-}
-
-# --- Group configuration ---
-variable "group_name" {
-  description = "Name of the task group"
+  description = "Service category for metadata tagging"
   type        = string
   default     = ""
 }
+
+# -------------------------------------------------------------------------------
+# Group Configuration
+# -------------------------------------------------------------------------------
 
 variable "count" {
   description = "Number of instances (service jobs only)"
@@ -89,29 +71,25 @@ variable "count" {
   default     = 1
 }
 
-# --- Constraints ---
 variable "constraints" {
-  description = "List of constraints for job placement"
-  type        = list(map(string))
-  default     = []
-}
-
-variable "group_constraints" {
-  description = "Group-level placement constraints"
-  # NO TYPE
+  description = "Job placement constraints"
+  # Type: list(object) but nomad-pack doesn't support it
   default = []
 }
 
-# --- Network ---
+# -------------------------------------------------------------------------------
+# Network Configuration
+# -------------------------------------------------------------------------------
+
 variable "network_preset" {
-  description = "Network mode preset name"
+  description = "Network mode: bridge or host"
   type        = string
   default     = "bridge"
 }
 
 variable "network_presets" {
-  description = "Network configuration presets"
-  # NO TYPE
+  description = "Network preset definitions (for jobs that define custom presets)"
+  # Type: map(object) but nomad-pack doesn't support it
   default = {
     bridge = { mode = "bridge" }
     host   = { mode = "host" }
@@ -120,308 +98,12 @@ variable "network_presets" {
 
 variable "ports" {
   description = "Port definitions"
-  # NO TYPE
+  # Type: list(object) but nomad-pack doesn't support it
   default = []
 }
 
-# --- Storage ---
-variable "volume" {
-  description = "Host volume configuration"
-  # NO TYPE
-  default = {}
-}
-
-# --- Task configuration ---
-variable "task" {
-  description = "Task configuration"
-  # NO TYPE
-  default = {}
-}
-
-variable "env" {
-  description = "Environment variables"
-  # NO TYPE
-  default = {}
-}
-
-# --- Resources ---
-variable "resource_tier" {
-  description = "Resource tier name"
-  type        = string
-  default     = "small"
-}
-
-variable "resource_tiers" {
-  description = "Resource tier definitions"
-  # NO TYPE
-  default = {
-    tiny   = { cpu = 50, memory = 64 }
-    small  = { cpu = 100, memory = 128 }
-    medium = { cpu = 500, memory = 512 }
-    large  = { cpu = 1000, memory = 1024 }
-  }
-}
-
-variable "resources" {
-  description = "Direct resource specification"
-  # NO TYPE
-  default = {}
-}
-
-# --- Templates ---
-variable "external_files" {
-  description = "External files configuration"
-  # NO TYPE
-  default = {}
-}
-
-variable "external_templates" {
-  description = "Template configurations"
-  # NO TYPE
-  default = []
-}
-
-# --- Service configuration ---
-variable "standard_service_enabled" {
-  description = "Enable standard service with automatic Traefik configuration"
-  type        = bool
-  default     = false
-}
-
-variable "standard_service_port" {
-  description = "Port name for standard service"
-  type        = string
-  default     = ""
-}
-
-variable "standard_service_port_number" {
-  description = "Port number for Traefik loadbalancer configuration"
-  type        = number
-  default     = 0
-}
-
-variable "additional_tags" {
-  description = "Additional Consul tags to append to standard service"
-  type        = list(string)
-  default     = []
-}
-
-variable "standard_http_check_enabled" {
-  description = "Enable standard HTTP health check"
-  type        = bool
-  default     = false
-}
-
-variable "standard_http_check_path" {
-  description = "HTTP health check path"
-  type        = string
-  default     = "/"
-}
-
-variable "standard_http_check_port" {
-  description = "HTTP health check port name"
-  type        = string
-  default     = "http"
-}
-
-variable "standard_http_check_interval" {
-  description = "Health check interval"
-  type        = string
-  default     = "10s"
-}
-
-variable "standard_http_check_timeout" {
-  description = "Health check timeout"
-  type        = string
-  default     = "3s"
-}
-
-variable "standard_service_name" {
-  description = "Service name for Consul"
-  type        = string
-  default     = ""
-}
-
-variable "service_tags" {
-  description = "Service tags for Consul"
-  type        = list(string)
-  default     = []
-}
-
-# --- Traefik integration ---
-variable "traefik_enable" {
-  description = "Enable Traefik routing"
-  type        = bool
-  default     = false
-}
-
-variable "traefik_internal_host" {
-  description = "Internal hostname for Traefik"
-  type        = string
-  default     = ""
-}
-
-variable "traefik_internal_entrypoint" {
-  description = "Traefik entrypoint"
-  type        = string
-  default     = "websecure"
-}
-
-variable "traefik_service_name" {
-  description = "Traefik service name"
-  type        = string
-  default     = ""
-}
-
-variable "traefik_service_port" {
-  description = "Port for Traefik service"
-  type        = number
-  default     = 80
-}
-
-# --- Deployment ---
-variable "deployment_profile" {
-  description = "Deployment profile name"
-  type        = string
-  default     = "standard"
-}
-
-variable "deployment_profiles" {
-  description = "Deployment profile definitions"
-  # NO TYPE
-  default = {
-    standard = {
-      max_parallel      = 1
-      health_check      = "checks"
-      min_healthy_time  = "30s"
-      healthy_deadline  = "5m"
-      progress_deadline = "10m"
-      auto_revert       = true
-      auto_promote      = true
-      canary            = 1
-    }
-  }
-}
-
-# --- Metadata ---
-variable "meta" {
-  description = "Job metadata"
-  # NO TYPE
-  default = {}
-}
-
-variable "meta_profile" {
-  description = "Metadata profile name"
-  type        = string
-  default     = ""
-}
-
-variable "meta_profiles" {
-  description = "Metadata profile definitions"
-  # NO TYPE
-  default = {}
-}
-
-# --- Restart policy ---
-variable "restart_attempts" {
-  description = "Number of restart attempts"
-  type        = number
-  default     = 3
-}
-
-variable "restart_interval" {
-  description = "Restart interval"
-  type        = string
-  default     = "5m"
-}
-
-variable "restart_delay" {
-  description = "Restart delay"
-  type        = string
-  default     = "30s"
-}
-
-variable "restart_mode" {
-  description = "Restart mode"
-  type        = string
-  default     = "fail"
-}
-
-variable "restart_preset" {
-  description = "Restart profile name"
-  type        = string
-  default     = ""
-}
-
-variable "restart_profiles" {
-  description = "Restart profile definitions"
-  # NO TYPE
-  default = {}
-}
-
-# --- Reschedule policy ---
-variable "reschedule_preset" {
-  description = "Reschedule profile name"
-  type        = string
-  default     = ""
-}
-
-variable "reschedule_presets" {
-  description = "Reschedule profile definitions"
-  # NO TYPE
-  default = {
-    standard = {
-      max_reschedules = 3
-      delay           = "5s"
-      delay_function  = "exponential"
-      unlimited       = false
-    }
-  }
-}
-
-# --- Termination ---
-variable "kill_timeout" {
-  description = "Task kill timeout"
-  type        = string
-  default     = "30s"
-}
-
-variable "kill_signal" {
-  description = "Task kill signal"
-  type        = string
-  default     = "SIGTERM"
-}
-
-# --- Environment ---
-variable "environment" {
-  description = "Environment name (dev/home/prod)"
-  type        = string
-  default     = ""
-}
-
-variable "env_defaults" {
-  description = "Environment-specific defaults"
-  # NO TYPE
-  default = {}
-}
-
-# --- Hostname injection toggle ---
-variable "use_node_hostname" {
-  description = "If true, inject HOSTNAME from node.unique.name into the task env"
-  type        = bool
-  default     = false
-}
-
-# --- External config content injection ---
-variable "config_yaml" {
-  description = "Full contents of the external config (e.g., Promtail YAML). If set, this overrides external_files/source_file."
-  type        = string
-  default     = ""
-}
-
-# --- DNS configuration ---
 variable "dns_servers" {
-  description = "DNS servers for the job"
+  description = "DNS servers for the network"
   type        = list(string)
   default     = []
 }
@@ -438,8 +120,272 @@ variable "dns_options" {
   default     = []
 }
 
+# -------------------------------------------------------------------------------
+# Storage
+# -------------------------------------------------------------------------------
+
+variable "volume" {
+  description = "Host volume configuration"
+  # Type: object but nomad-pack doesn't support it
+  default = {}
+}
+
+# -------------------------------------------------------------------------------
+# Task Configuration
+# -------------------------------------------------------------------------------
+
+variable "task" {
+  description = "Task configuration (driver, config, env, services, resources, etc.)"
+  # Type: object but nomad-pack doesn't support it
+  default = {}
+}
+
+# -------------------------------------------------------------------------------
+# Resources
+# -------------------------------------------------------------------------------
+
+variable "resource_tier" {
+  description = "Resource tier: nano, tiny, small, medium, large, xlarge"
+  type        = string
+  default     = "small"
+}
+
+variable "resource_tiers" {
+  description = "Resource tier definitions"
+  # Type: map(object) but nomad-pack doesn't support it
+  default = {
+    nano   = { cpu = 50,   memory = 64 }
+    tiny   = { cpu = 100,  memory = 128 }
+    small  = { cpu = 200,  memory = 256 }
+    medium = { cpu = 500,  memory = 512 }
+    large  = { cpu = 1000, memory = 1024 }
+    xlarge = { cpu = 2000, memory = 2048 }
+  }
+}
+
+# -------------------------------------------------------------------------------
+# Deployment Strategy
+# -------------------------------------------------------------------------------
+
+variable "deployment_profile" {
+  description = "Deployment profile: standard, canary, rolling"
+  type        = string
+  default     = "standard"
+}
+
+variable "deployment_profiles" {
+  description = "Deployment profile definitions"
+  # Type: map(object) but nomad-pack doesn't support it
+  default = {
+    standard = {
+      max_parallel      = 1
+      canary            = 1
+      health_check      = "checks"
+      min_healthy_time  = "30s"
+      healthy_deadline  = "5m"
+      progress_deadline = "10m"
+      auto_revert       = true
+      auto_promote      = true
+    }
+    canary = {
+      max_parallel      = 1
+      canary            = 1
+      health_check      = "checks"
+      min_healthy_time  = "30s"
+      healthy_deadline  = "5m"
+      progress_deadline = "10m"
+      auto_revert       = true
+      auto_promote      = true
+    }
+    rolling = {
+      max_parallel      = 2
+      canary            = 0
+      health_check      = "checks"
+      min_healthy_time  = "10s"
+      healthy_deadline  = "3m"
+      progress_deadline = "10m"
+      auto_revert       = true
+      auto_promote      = false
+    }
+  }
+}
+
+# -------------------------------------------------------------------------------
+# Metadata
+# -------------------------------------------------------------------------------
+
+variable "meta_profile" {
+  description = "Metadata profile name"
+  type        = string
+  default     = "tier2"
+}
+
+variable "meta_profiles" {
+  description = "Metadata profile definitions"
+  # Type: map(object) but nomad-pack doesn't support it
+  default = {
+    tier1 = { tier = "critical" }
+    tier2 = { tier = "important" }
+  }
+}
+
+# -------------------------------------------------------------------------------
+# Restart Policy
+# -------------------------------------------------------------------------------
+
+variable "restart_attempts" {
+  description = "Number of restart attempts within interval"
+  type        = number
+  default     = 3
+}
+
+variable "restart_interval" {
+  description = "Restart interval window"
+  type        = string
+  default     = "5m"
+}
+
+variable "restart_delay" {
+  description = "Delay between restart attempts"
+  type        = string
+  default     = "30s"
+}
+
+variable "restart_mode" {
+  description = "Restart mode: fail, delay"
+  type        = string
+  default     = "fail"
+}
+
+# -------------------------------------------------------------------------------
+# Reschedule Policy
+# -------------------------------------------------------------------------------
+
+variable "reschedule_preset" {
+  description = "Reschedule preset: standard, aggressive, extended"
+  type        = string
+  default     = "standard"
+}
+
+variable "reschedule_presets" {
+  description = "Reschedule preset definitions"
+  # Type: map(object) but nomad-pack doesn't support it
+  default = {
+    standard = {
+      max_reschedules = 3
+      interval        = "5m"
+      delay           = "5s"
+      delay_function  = "exponential"
+      unlimited       = false
+    }
+    aggressive = {
+      max_reschedules = 10
+      interval        = "1h"
+      delay           = "5s"
+      delay_function  = "exponential"
+      unlimited       = false
+    }
+    extended = {
+      max_reschedules = 5
+      interval        = "15m"
+      delay           = "10s"
+      delay_function  = "exponential"
+      unlimited       = false
+    }
+  }
+}
+
+# -------------------------------------------------------------------------------
+# External Configuration Files
+# -------------------------------------------------------------------------------
+
+variable "external_files" {
+  description = "External file injection configuration"
+  # Type: object but nomad-pack doesn't support it
+  default = {
+    enabled   = false
+    base_path = ""
+  }
+}
+
+variable "external_templates" {
+  description = "External template file configurations"
+  # Type: list(object) but nomad-pack doesn't support it
+  default = []
+}
+
+# -------------------------------------------------------------------------------
+# Vault Integration
+# -------------------------------------------------------------------------------
+
 variable "vault_role" {
-  description = "Vault role for the job (enables Vault integration when set)"
+  description = "Vault role for workload identity (enables Vault when set)"
   type        = string
   default     = ""
+}
+
+# -------------------------------------------------------------------------------
+# Service Registration (Standard Pattern)
+# -------------------------------------------------------------------------------
+
+variable "standard_service_enabled" {
+  description = "Enable standard service with Traefik auto-configuration"
+  type        = bool
+  default     = false
+}
+
+variable "standard_service_port" {
+  description = "Port name for standard service registration"
+  type        = string
+  default     = "http"
+}
+
+variable "standard_service_port_number" {
+  description = "Port number for Traefik loadbalancer.server.port"
+  type        = number
+  default     = 80
+}
+
+variable "standard_http_check_enabled" {
+  description = "Enable HTTP health check for standard service"
+  type        = bool
+  default     = false
+}
+
+variable "standard_http_check_path" {
+  description = "HTTP health check path"
+  type        = string
+  default     = "/"
+}
+
+variable "additional_tags" {
+  description = "Additional Consul tags for standard service"
+  type        = list(string)
+  default     = []
+}
+
+# -------------------------------------------------------------------------------
+# Termination
+# -------------------------------------------------------------------------------
+
+variable "kill_timeout" {
+  description = "Task kill timeout"
+  type        = string
+  default     = "30s"
+}
+
+variable "kill_signal" {
+  description = "Task kill signal"
+  type        = string
+  default     = "SIGTERM"
+}
+
+# -------------------------------------------------------------------------------
+# Utilities
+# -------------------------------------------------------------------------------
+
+variable "use_node_hostname" {
+  description = "Inject HOSTNAME env var from node.unique.name"
+  type        = bool
+  default     = false
 }
