@@ -389,3 +389,29 @@ variable "use_node_hostname" {
   type        = bool
   default     = false
 }
+
+# -------------------------------------------------------------------------------
+# Consul Connect (Service Mesh)
+# -------------------------------------------------------------------------------
+
+variable "consul_connect_enabled" {
+  description = "Enable Consul Connect service mesh with automatic mTLS"
+  type        = bool
+  default     = false
+}
+
+variable "connect_upstreams" {
+  description = "Upstream services this service needs to connect to via Connect"
+  # Type: list(object) but nomad-pack doesn't support it
+  # Format: [{ destination_name = "service-name", local_bind_port = 8080 }]
+  default     = []
+}
+
+variable "connect_sidecar_resources" {
+  description = "Resource allocation for Envoy sidecar proxy"
+  # Type: object but nomad-pack doesn't support it
+  default = {
+    cpu    = 200
+    memory = 128
+  }
+}

@@ -154,6 +154,117 @@ job "[[ var "job_name" . ]]" {
     [[- end ]]
 
     # -----------------------------------------------------------------------
+    # Consul Connect Service Registration (Group Level)
+    # -----------------------------------------------------------------------
+
+    [[- if var "consul_connect_enabled" . ]]
+    [[- if var "standard_service_enabled" . ]]
+    # --- Connect service with standard configuration ---
+    service {
+      name     = "[[ var "job_name" . ]]"
+      port     = "[[ var "standard_service_port" . ]]"
+      provider = "consul"
+      tags = [
+        "traefik.enable=true",
+        "traefik.http.routers.[[ var "job_name" . ]].rule=Host(`[[ var "job_name" . ]].munchbox`)",
+        "traefik.http.routers.[[ var "job_name" . ]].entrypoints=websecure",
+        "traefik.http.routers.[[ var "job_name" . ]].tls=true",
+        "traefik.http.routers.[[ var "job_name" . ]].middlewares=dashboard-allowlan@file",
+        "traefik.http.services.[[ var "job_name" . ]].loadbalancer.server.port=[[ var "standard_service_port_number" . ]]",
+        [[- range var "additional_tags" . ]]
+        "[[ . ]]",
+        [[- end ]]
+      ]
+
+      connect {
+        sidecar_service {
+          proxy {
+            [[- range var "connect_upstreams" . ]]
+            upstreams {
+              destination_name = "[[ .destination_name ]]"
+              local_bind_port  = [[ .local_bind_port ]]
+            }
+            [[- end ]]
+          }
+        }
+
+        sidecar_task {
+          resources {
+            cpu    = [[ index (var "connect_sidecar_resources" .) "cpu" | default 200 ]]
+            memory = [[ index (var "connect_sidecar_resources" .) "memory" | default 128 ]]
+          }
+        }
+      }
+
+      [[- if var "standard_http_check_enabled" . ]]
+      check {
+        name     = "[[ var "job_name" . ]]-ready"
+        type     = "http"
+        port     = "[[ var "standard_service_port" . ]]"
+        path     = "[[ var "standard_http_check_path" . ]]"
+        interval = "10s"
+        timeout  = "3s"
+      }
+      [[- end ]]
+    }
+
+    [[- else ]]
+    # --- Connect service with custom configuration ---
+    [[- $task := var "task" . ]]
+    [[- $svc := index $task "service" ]]
+    service {
+      name     = "[[ index $svc "name" ]]"
+      [[- if index $svc "port" ]]
+      port     = "[[ index $svc "port" ]]"
+      [[- end ]]
+      provider = "[[ index $svc "provider" | default "consul" ]]"
+      tags     = [[ index $svc "tags" | default list | toJson ]]
+
+      connect {
+        sidecar_service {
+          proxy {
+            [[- range var "connect_upstreams" . ]]
+            upstreams {
+              destination_name = "[[ .destination_name ]]"
+              local_bind_port  = [[ .local_bind_port ]]
+            }
+            [[- end ]]
+          }
+        }
+
+        sidecar_task {
+          resources {
+            cpu    = [[ index (var "connect_sidecar_resources" .) "cpu" | default 200 ]]
+            memory = [[ index (var "connect_sidecar_resources" .) "memory" | default 128 ]]
+          }
+        }
+      }
+
+      [[- range index $svc "checks" | default list ]]
+      check {
+        name     = "[[ .name ]]"
+        type     = "[[ .type ]]"
+        [[- if .port ]]
+        port     = "[[ .port ]]"
+        [[- end ]]
+        [[- if eq .type "http" ]]
+        path     = "[[ .path ]]"
+        [[- end ]]
+        interval = "[[ .interval | default "10s" ]]"
+        timeout  = "[[ .timeout | default "2s" ]]"
+        [[- if .check_restart ]]
+        check_restart {
+          limit = [[ .check_restart.limit | default 3 ]]
+          grace = "[[ .check_restart.grace | default "5s" ]]"
+        }
+        [[- end ]]
+      }
+      [[- end ]]
+    }
+    [[- end ]]
+    [[- end ]]
+
+    # -----------------------------------------------------------------------
     # Restart Policy
     # -----------------------------------------------------------------------
 
@@ -373,8 +484,10 @@ EOT
       [[- end ]]
 
       # -----------------------------------------------------------------------
-      # Service Registration
+      # Service Registration (Task Level - Non-Connect Only)
       # -----------------------------------------------------------------------
+
+      [[- if not (var "consul_connect_enabled" .) ]]
 
       [[- if var "standard_service_enabled" . ]]
       # --- Standard service with automatic Traefik configuration ---
@@ -471,6 +584,8 @@ EOT
         }
         [[- end ]]
       }
+      [[- end ]]
+
       [[- end ]]
 
       # -----------------------------------------------------------------------
