@@ -161,9 +161,10 @@ job "[[ var "job_name" . ]]" {
     [[- if var "standard_service_enabled" . ]]
     # --- Connect service with standard configuration ---
     service {
-      name     = "[[ var "job_name" . ]]"
-      port     = "[[ var "standard_service_port" . ]]"
-      provider = "consul"
+      name         = "[[ var "job_name" . ]]"
+      port         = "[[ var "standard_service_port" . ]]"
+      address_mode = "alloc"
+      provider     = "consul"
       tags = [
         [[- range var "additional_tags" . ]]
         "[[ . ]]",
@@ -193,12 +194,13 @@ job "[[ var "job_name" . ]]" {
 
       [[- if var "standard_http_check_enabled" . ]]
       check {
-        name     = "[[ var "job_name" . ]]-ready"
-        type     = "http"
-        port     = "[[ var "standard_service_port" . ]]"
-        path     = "[[ var "standard_http_check_path" . ]]"
-        interval = "10s"
-        timeout  = "3s"
+        name         = "[[ var "job_name" . ]]-ready"
+        type         = "http"
+        port         = "[[ var "standard_service_port" . ]]"
+        path         = "[[ var "standard_http_check_path" . ]]"
+        address_mode = "alloc"
+        interval     = "10s"
+        timeout      = "3s"
       }
       [[- end ]]
     }
@@ -208,12 +210,13 @@ job "[[ var "job_name" . ]]" {
     [[- $task := var "task" . ]]
     [[- $svc := index $task "service" ]]
     service {
-      name     = "[[ index $svc "name" ]]"
+      name         = "[[ index $svc "name" ]]"
       [[- if index $svc "port" ]]
-      port     = "[[ index $svc "port" ]]"
+      port         = "[[ index $svc "port" ]]"
       [[- end ]]
-      provider = "[[ index $svc "provider" | default "consul" ]]"
-      tags     = [[ index $svc "tags" | default list | toJson ]]
+      address_mode = "alloc"
+      provider     = "[[ index $svc "provider" | default "consul" ]]"
+      tags         = [[ index $svc "tags" | default list | toJson ]]
 
       connect {
         sidecar_service {
@@ -237,16 +240,17 @@ job "[[ var "job_name" . ]]" {
 
       [[- range index $svc "checks" | default list ]]
       check {
-        name     = "[[ .name ]]"
-        type     = "[[ .type ]]"
+        name         = "[[ .name ]]"
+        type         = "[[ .type ]]"
         [[- if .port ]]
-        port     = "[[ .port ]]"
+        port         = "[[ .port ]]"
         [[- end ]]
         [[- if eq .type "http" ]]
-        path     = "[[ .path ]]"
+        path         = "[[ .path ]]"
         [[- end ]]
-        interval = "[[ .interval | default "10s" ]]"
-        timeout  = "[[ .timeout | default "2s" ]]"
+        address_mode = "alloc"
+        interval     = "[[ .interval | default "10s" ]]"
+        timeout      = "[[ .timeout | default "2s" ]]"
         [[- if .check_restart ]]
         check_restart {
           limit = [[ .check_restart.limit | default 3 ]]
