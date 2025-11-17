@@ -185,7 +185,6 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
   refreshInterval = "15s"
   prefix          = "traefik"
   exposedByDefault = false
-  connectAware = true
   [providers.consulCatalog.endpoint]
     address = "[[ var "consul_address" . ]]"
 {{- with secret "[[ var "consul_token_path" . ]]" }}

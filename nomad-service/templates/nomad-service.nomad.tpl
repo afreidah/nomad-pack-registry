@@ -165,12 +165,6 @@ job "[[ var "job_name" . ]]" {
       port     = "[[ var "standard_service_port" . ]]"
       provider = "consul"
       tags = [
-        "traefik.enable=true",
-        "traefik.http.routers.[[ var "job_name" . ]].rule=Host(`[[ var "job_name" . ]].munchbox`)",
-        "traefik.http.routers.[[ var "job_name" . ]].entrypoints=websecure",
-        "traefik.http.routers.[[ var "job_name" . ]].tls=true",
-        "traefik.http.routers.[[ var "job_name" . ]].middlewares=dashboard-allowlan@file",
-        "traefik.http.services.[[ var "job_name" . ]].loadbalancer.server.port=[[ var "standard_service_port_number" . ]]",
         [[- range var "additional_tags" . ]]
         "[[ . ]]",
         [[- end ]]
@@ -178,6 +172,7 @@ job "[[ var "job_name" . ]]" {
 
       connect {
         sidecar_service {
+          tags = ["traefik.enable=false"]
           proxy {
             [[- range var "connect_upstreams" . ]]
             upstreams {
