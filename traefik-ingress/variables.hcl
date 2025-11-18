@@ -70,12 +70,6 @@ variable "https_port" {
   default     = 443
 }
 
-variable "registry_tcp_port" {
-  description = "Docker registry TCP port"
-  type        = number
-  default     = 5000
-}
-
 variable "certificate_cn" {
   description = "Certificate Common Name"
   type        = string

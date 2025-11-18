@@ -50,11 +50,6 @@ job "[[ var "job_name" . ]]" {
         static = [[ var "https_port" . ]]
         to     = [[ var "https_port" . ]]
       }
-
-      port "registry-tcp" {
-        static = [[ var "registry_tcp_port" . ]]
-        to     = [[ var "registry_tcp_port" . ]]
-      }
     }
 
     restart {
@@ -138,7 +133,7 @@ openssl x509 -in $CERT_DIR/munchbox.crt -text -noout | head -5
       config {
         image        = "traefik:[[ var "traefik_version" . ]]"
         network_mode = "host"
-        ports        = ["http", "https", "dashboard", "registry-tcp"]
+        ports        = ["http", "https", "dashboard"]
         volumes = [
           "local/traefik.toml:/etc/traefik/traefik.toml",
           "local/traefik_dynamic.toml:/etc/traefik/traefik_dynamic.toml"
@@ -174,9 +169,6 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
 
   [entryPoints.traefik]
     address = ":[[ var "dashboard_port" . ]]"
-
-  [entryPoints.registry-tcp]
-    address = ":[[ var "registry_tcp_port" . ]]"
 
 [api]
   dashboard = true
@@ -400,20 +392,6 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
 
 [http.services.health-checker-svc.loadBalancer.servers.0]
   url = "http://health-checker.service.consul:18080"
-
-# -----------------------------------------------------------------------
-# Docker Registry TCP Router
-# -----------------------------------------------------------------------
-
-[tcp.routers.docker-registry]
-  rule        = "HostSNI(`*`)"
-  entryPoints = ["registry-tcp"]
-  service     = "docker-registry-tcp"
-
-[tcp.services.docker-registry-tcp.loadBalancer]
-  servers = [
-    { address = "docker-mirror.service.consul:5000" }
-  ]
         EOT
       }
 
