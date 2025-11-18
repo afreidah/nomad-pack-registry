@@ -32,7 +32,9 @@ variable "priority" {
   default     = 50
 }
 
-# --- Placement ---
+# -----------------------------------------------------------------------
+# Placement
+# -----------------------------------------------------------------------
 
 variable "ingress_node_constraint" {
   description = "Node selector for ingress role"
@@ -40,7 +42,9 @@ variable "ingress_node_constraint" {
   default     = "ingress"
 }
 
-# --- Traefik Configuration ---
+# -----------------------------------------------------------------------
+# Traefik Configuration
+# -----------------------------------------------------------------------
 
 variable "traefik_version" {
   description = "Traefik Docker image version"
@@ -66,6 +70,12 @@ variable "https_port" {
   default     = 443
 }
 
+variable "registry_tcp_port" {
+  description = "Docker registry TCP port"
+  type        = number
+  default     = 5000
+}
+
 variable "certificate_cn" {
   description = "Certificate Common Name"
   type        = string
@@ -78,7 +88,9 @@ variable "certificate_days" {
   default     = 3650
 }
 
-# --- Consul Integration ---
+# -----------------------------------------------------------------------
+# Consul Integration
+# -----------------------------------------------------------------------
 
 variable "consul_address" {
   description = "Consul API address"
@@ -92,7 +104,9 @@ variable "consul_token_path" {
   default     = "kv/data/traefik"
 }
 
-# --- Resources ---
+# -----------------------------------------------------------------------
+# Resources
+# -----------------------------------------------------------------------
 
 variable "cpu" {
   description = "CPU allocation"
@@ -106,7 +120,9 @@ variable "memory" {
   default     = 256
 }
 
-# --- Vault ---
+# -----------------------------------------------------------------------
+# Vault
+# -----------------------------------------------------------------------
 
 variable "vault_enabled" {
   description = "Enable Vault integration"
