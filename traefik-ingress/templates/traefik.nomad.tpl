@@ -246,12 +246,12 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
 [providers.consulCatalog]
   refreshInterval = "15s"
   prefix          = "traefik"
-  
+
   # --- Consul Connect service mesh integration ---
   connectAware     = [[ var "connect_aware" . ]]
   connectByDefault = [[ var "connect_by_default" . ]]
   exposedByDefault = [[ var "exposed_by_default" . ]]
-  
+
   [providers.consulCatalog.endpoint]
     address = "[[ var "consul_address" . ]]"
 {{- with secret "[[ var "consul_token_path" . ]]" }}

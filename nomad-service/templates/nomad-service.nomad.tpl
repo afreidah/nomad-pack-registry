@@ -155,6 +155,19 @@ job "[[ var "job_name" . ]]" {
 
     # -----------------------------------------------------------------------
     # Consul Connect Service Registration (Group Level)
+    #
+    # This section wires service registration and, when enabled, Consul Connect.
+    # Traefik routing defaults are applied based on consul_connect_enabled and
+    # standard_service_enabled:
+    #
+    # - Connect + standard service:
+    #     - Main service: classification tags only (mesh identity).
+    #     - Sidecar service: Traefik routing tags (edge entrypoint).
+    #
+    # - Non-Connect + standard service:
+    #     - Main service: Traefik routing tags and classification tags.
+    #
+    # Additional tags are always appended from additional_tags.
     # -----------------------------------------------------------------------
 
     [[- if var "consul_connect_enabled" . ]]
@@ -166,6 +179,7 @@ job "[[ var "job_name" . ]]" {
       address_mode = "alloc"
       provider     = "consul"
       tags = [
+        # Classification tags only; Traefik tags go on the sidecar.
         [[- range var "additional_tags" . ]]
         "[[ . ]]",
         [[- end ]]
@@ -173,7 +187,31 @@ job "[[ var "job_name" . ]]" {
 
       connect {
         sidecar_service {
-          tags = ["traefik.enable=false"]
+          [[- if var "traefik_enabled" . ]]
+          # --- Traefik routing via sidecar service (edge entrypoint) ---
+          tags = [
+            "traefik.enable=true",
+            "traefik.http.routers.[[ var "job_name" . ]].rule=Host(`[[ default (printf "%s.munchbox" (var "job_name" .)) (var "traefik_host" .) ]]`)",
+            "traefik.http.routers.[[ var "job_name" . ]].entrypoints=[[ var "traefik_entrypoints" . ]]",
+            [[- if var "traefik_tls_enabled" . ]]
+            "traefik.http.routers.[[ var "job_name" . ]].tls=true",
+            [[- end ]]
+            "traefik.http.routers.[[ var "job_name" . ]].middlewares=[[ var "traefik_middlewares" . ]]",
+            "traefik.http.services.[[ var "job_name" . ]].loadbalancer.server.port=[[ var "standard_service_port_number" . ]]",
+            [[- range var "additional_tags" . ]]
+            "[[ . ]]",
+            [[- end ]]
+          ]
+          [[- else ]]
+          # --- Traefik explicitly disabled for this sidecar ---
+          tags = [
+            "traefik.enable=false",
+            [[- range var "additional_tags" . ]]
+            "[[ . ]]",
+            [[- end ]]
+          ]
+          [[- end ]]
+
           proxy {
             [[- range var "connect_upstreams" . ]]
             upstreams {
@@ -209,6 +247,7 @@ job "[[ var "job_name" . ]]" {
     # --- Connect service with custom configuration ---
     [[- $task := var "task" . ]]
     [[- $svc := index $task "service" ]]
+
     service {
       name         = "[[ index $svc "name" ]]"
       [[- if index $svc "port" ]]
@@ -216,10 +255,13 @@ job "[[ var "job_name" . ]]" {
       [[- end ]]
       address_mode = "alloc"
       provider     = "[[ index $svc "provider" | default "consul" ]]"
-      tags         = [[ index $svc "tags" | default list | toJson ]]
+      tags         = [[ index $svc "tags" | default (list) | toJson ]]
 
       connect {
         sidecar_service {
+          [[- $sidecar := index $svc "sidecar_service" | default dict ]]
+          tags = [[ index $sidecar "tags" | default (list) | toJson ]]
+
           proxy {
             [[- range var "connect_upstreams" . ]]
             upstreams {
@@ -238,25 +280,60 @@ job "[[ var "job_name" . ]]" {
         }
       }
 
-      [[- range index $svc "checks" | default list ]]
+      [[- if var "standard_http_check_enabled" . ]]
       check {
-        name         = "[[ .name ]]"
-        type         = "[[ .type ]]"
-        [[- if .port ]]
-        port         = "[[ .port ]]"
-        [[- end ]]
-        [[- if eq .type "http" ]]
-        path         = "[[ .path ]]"
-        [[- end ]]
+        name         = "[[ var "job_name" . ]]-ready"
+        type         = "http"
+        port         = "[[ var "standard_service_port" . ]]"
+        path         = "[[ var "standard_http_check_path" . ]]"
         address_mode = "alloc"
-        interval     = "[[ .interval | default "10s" ]]"
-        timeout      = "[[ .timeout | default "2s" ]]"
-        [[- if .check_restart ]]
-        check_restart {
-          limit = [[ .check_restart.limit | default 3 ]]
-          grace = "[[ .check_restart.grace | default "5s" ]]"
-        }
+        interval     = "10s"
+        timeout      = "3s"
+      }
+      [[- end ]]
+    }
+    [[- end ]]
+
+    [[- else ]]
+    [[- if var "standard_service_enabled" . ]]
+    # --- Non-Connect standard service (Traefik on main service) ---
+    service {
+      name     = "[[ var "job_name" . ]]"
+      port     = "[[ var "standard_service_port" . ]]"
+      provider = "consul"
+
+      [[- if var "traefik_enabled" . ]]
+      tags = [
+        "traefik.enable=true",
+        "traefik.http.routers.[[ var "job_name" . ]].rule=Host(`[[ default (printf "%s.munchbox" (var "job_name" .)) (var "traefik_host" .) ]]`)",
+        "traefik.http.routers.[[ var "job_name" . ]].entrypoints=[[ var "traefik_entrypoints" . ]]",
+        [[- if var "traefik_tls_enabled" . ]]
+        "traefik.http.routers.[[ var "job_name" . ]].tls=true",
         [[- end ]]
+        "traefik.http.routers.[[ var "job_name" . ]].middlewares=[[ var "traefik_middlewares" . ]]",
+        "traefik.http.services.[[ var "job_name" . ]].loadbalancer.server.port=[[ var "standard_service_port_number" . ]]",
+        [[- range var "additional_tags" . ]]
+        "[[ . ]]",
+        [[- end ]]
+      ]
+      [[- else ]]
+      tags = [
+        "traefik.enable=false",
+        [[- range var "additional_tags" . ]]
+        "[[ . ]]",
+        [[- end ]]
+      ]
+      [[- end ]]
+
+      [[- if var "standard_http_check_enabled" . ]]
+      check {
+        name         = "[[ var "job_name" . ]]-ready"
+        type         = "http"
+        port         = "[[ var "standard_service_port" . ]]"
+        path         = "[[ var "standard_http_check_path" . ]]"
+        address_mode = "alloc"
+        interval     = "10s"
+        timeout      = "3s"
       }
       [[- end ]]
     }
@@ -264,369 +341,91 @@ job "[[ var "job_name" . ]]" {
     [[- end ]]
 
     # -----------------------------------------------------------------------
-    # Restart Policy
-    # -----------------------------------------------------------------------
-
-    restart {
-      attempts = [[ var "restart_attempts" . ]]
-      interval = "[[ var "restart_interval" . ]]"
-      delay    = "[[ var "restart_delay" . ]]"
-      mode     = "[[ var "restart_mode" . ]]"
-    }
-
-    # -----------------------------------------------------------------------
-    # Reschedule Policy
-    # -----------------------------------------------------------------------
-
-    [[- if eq (var "job_type" .) "service" ]]
-    [[- $reschedule := index (var "reschedule_presets" .) (var "reschedule_preset" .) ]]
-
-    reschedule {
-      attempts       = [[ $reschedule.max_reschedules ]]
-      interval       = "[[ $reschedule.interval ]]"
-      delay          = "[[ $reschedule.delay ]]"
-      delay_function = "[[ $reschedule.delay_function ]]"
-      unlimited      = [[ $reschedule.unlimited ]]
-    }
-    [[- end ]]
-
-    # -------------------------------------------------------------------------------
-    # Task Definition
+    # Main Task Definition
     #
-    # The main workload specification including driver configuration, secrets,
-    # runtime environment, service registration, and resource allocation.
-    # -------------------------------------------------------------------------------
+    # Single primary task for this group. Task configuration is provided via
+    # the "task" variable map to allow reuse across jobs and environments.
+    # -----------------------------------------------------------------------
 
     [[- $task := var "task" . ]]
 
     task "[[ index $task "name" ]]" {
       driver = "[[ index $task "driver" ]]"
 
+      # --- Task user (optional) ---
       [[- if index $task "user" ]]
       user = "[[ index $task "user" ]]"
       [[- end ]]
 
-      # -----------------------------------------------------------------------
-      # Vault Integration
-      # -----------------------------------------------------------------------
-
-      [[- if ne (var "vault_role" .) "" ]]
-      identity {
-        env  = true
-        file = true
-        aud  = ["vault.io"]
-      }
-
-      vault {
-        role = "[[ var "vault_role" . ]]"
-      }
-      [[- end ]]
-
-      # -----------------------------------------------------------------------
-      # Driver Configuration
-      # -----------------------------------------------------------------------
-
-      [[- $cfg := index $task "config" ]]
-
-      [[- if eq (index $task "driver") "docker" ]]
+      # --- Task config map ---
+      [[- if index $task "config" ]]
       config {
-        image = "[[ index $cfg "image" ]]"
-
-        # --- Image pull settings ---
-        [[- if index $cfg "image_pull_timeout" ]]
-        image_pull_timeout = "[[ index $cfg "image_pull_timeout" ]]"
-        [[- end ]]
-        [[- if index $cfg "force_pull" ]]
-        force_pull = [[ index $cfg "force_pull" ]]
-        [[- end ]]
-
-        # --- Network mode (inherit from group or override) ---
-        [[- if eq (var "network_preset" .) "host" ]]
-        network_mode = "host"
-        [[- else if index $cfg "network_mode" ]]
-        network_mode = "[[ index $cfg "network_mode" ]]"
-        [[- end ]]
-
-        # --- Process isolation ---
-        [[- if index $cfg "pid_mode" ]]
-        pid_mode = "[[ index $cfg "pid_mode" ]]"
-        [[- end ]]
-
-        # --- Port mappings ---
-        [[- if index $cfg "ports" ]]
-        ports = [[ index $cfg "ports" | toJson ]]
-        [[- end ]]
-
-        # --- Container startup customization ---
-        [[- if index $cfg "entrypoint" ]]
-        entrypoint = [[ index $cfg "entrypoint" | toJson ]]
-        [[- end ]]
-        [[- if index $cfg "command" ]]
-        command = "[[ index $cfg "command" ]]"
-        [[- end ]]
-        [[- if index $cfg "args" ]]
-        args = [[ index $cfg "args" | toJson ]]
-        [[- end ]]
-
-        # --- Security and capabilities ---
-        [[- if index $cfg "privileged" ]]
-        privileged = [[ index $cfg "privileged" ]]
-        [[- end ]]
-        [[- if index $cfg "cap_add" ]]
-        cap_add = [[ index $cfg "cap_add" | toJson ]]
-        [[- end ]]
-
-        # --- Device access (GPU, hardware transcoding, etc.) ---
-        [[- if index $cfg "devices" ]]
-        devices = [[ index $cfg "devices" | toJson ]]
-        [[- end ]]
-
-        # --- Volume mounts ---
-        [[- if index $cfg "volumes" ]]
-        volumes = [[ index $cfg "volumes" | toJson ]]
-        [[- end ]]
-
-        # --- Host resolution overrides ---
-        [[- if index $cfg "extra_hosts" ]]
-        extra_hosts = [[ index $cfg "extra_hosts" | toJson ]]
-        [[- end ]]
-
-        # --- DNS configuration ---
-        [[- $dns := var "dns_servers" . ]]
-        [[- if gt (len $dns) 0 ]]
-        dns_servers = [[ $dns | toJson ]]
-        [[- end ]]
-        [[- if index $cfg "dns_search_domains" ]]
-        dns_search_domains = [[ index $cfg "dns_search_domains" | toJson ]]
-        [[- end ]]
-        [[- if index $cfg "dns_options" ]]
-        dns_options = [[ index $cfg "dns_options" | toJson ]]
-        [[- end ]]
-      }
-
-      [[- else if or (eq (index $task "driver") "raw_exec") (eq (index $task "driver") "exec") ]]
-      config {
-        [[- if index $cfg "command" ]]
-        command = "[[ index $cfg "command" ]]"
-        [[- end ]]
-        [[- if index $cfg "args" ]]
-        args = [[ index $cfg "args" | toJson ]]
+        [[- range $k, $v := index $task "config" ]]
+        [[ $k ]] = [[ $v | toJson ]]
         [[- end ]]
       }
       [[- end ]]
 
-      # -----------------------------------------------------------------------
-      # Volume Mount
-      # -----------------------------------------------------------------------
-
-      [[- $vol := var "volume" . ]]
-      [[- if and $vol (index $vol "name") ]]
-      volume_mount {
-        volume      = "[[ index $vol "name" ]]"
-        destination = "[[ index $vol "mount_path" ]]"
-        read_only   = [[ index $vol "read_only" | default false ]]
-      }
-      [[- end ]]
-
-      # -----------------------------------------------------------------------
-      # External Configuration Templates
-      # -----------------------------------------------------------------------
-
-      [[- $ef := var "external_files" . ]]
-      [[- if and $ef (index $ef "enabled") ]]
-      [[- $base := index $ef "base_path" ]]
-
-      [[- range var "external_templates" . ]]
-      template {
-        destination = "[[ .destination ]]"
-
-        # --- Template behavior settings ---
-        [[- if .env ]]
-        env         = [[ .env ]]
-        [[- end ]]
-        [[- if .perms ]]
-        perms       = "[[ .perms ]]"
-        [[- end ]]
-        change_mode = "[[ .change_mode | default "restart" ]]"
-        [[- if .change_signal ]]
-        change_signal = "[[ .change_signal ]]"
-        [[- end ]]
-
-        # --- Custom delimiters for Consul template syntax ---
-        [[- if .left_delimiter ]]
-        left_delimiter  = "[[ .left_delimiter ]]"
-        [[- end ]]
-        [[- if .right_delimiter ]]
-        right_delimiter = "[[ .right_delimiter ]]"
-        [[- end ]]
-
-        data = <<-EOT
-[[ fileContents (printf "%s/%s" $base .source_file) ]]
-EOT
-      }
-      [[- end ]]
-      [[- end ]]
-
-      # -----------------------------------------------------------------------
-      # Runtime Environment
-      # -----------------------------------------------------------------------
-
-      [[- if or (index $task "env") (var "use_node_hostname" .) ]]
+      # --- Environment variables ---
+      [[- if index $task "env" ]]
       env {
-        [[- range $key, $value := (index $task "env" | default dict) ]]
-        [[ $key ]] = "[[ $value ]]"
-        [[- end ]]
-        [[- if var "use_node_hostname" . ]]
-        HOSTNAME = "${node.unique.name}"
+        [[- range $k, $v := index $task "env" ]]
+        [[ $k ]] = "[[ $v ]]"
         [[- end ]]
       }
       [[- end ]]
 
-      # -----------------------------------------------------------------------
-      # Service Registration (Task Level - Non-Connect Only)
-      # -----------------------------------------------------------------------
-
-      [[- if not (var "consul_connect_enabled" .) ]]
-
-      [[- if var "standard_service_enabled" . ]]
-      # --- Standard service with automatic Traefik configuration ---
-      service {
-        name     = "[[ var "job_name" . ]]"
-        port     = "[[ var "standard_service_port" . ]]"
-        provider = "consul"
-        tags = [
-          "traefik.enable=true",
-          "traefik.http.routers.[[ var "job_name" . ]].rule=Host(`[[ var "job_name" . ]].munchbox`)",
-          "traefik.http.routers.[[ var "job_name" . ]].entrypoints=websecure",
-          "traefik.http.routers.[[ var "job_name" . ]].tls=true",
-          "traefik.http.routers.[[ var "job_name" . ]].middlewares=dashboard-allowlan@file",
-          "traefik.http.services.[[ var "job_name" . ]].loadbalancer.server.port=[[ var "standard_service_port_number" . ]]",
-          [[- range var "additional_tags" . ]]
-          "[[ . ]]",
-          [[- end ]]
-        ]
-
-        [[- if var "standard_http_check_enabled" . ]]
-        check {
-          name     = "[[ var "job_name" . ]]-ready"
-          type     = "http"
-          path     = "[[ var "standard_http_check_path" . ]]"
-          interval = "10s"
-          timeout  = "3s"
-        }
-        [[- end ]]
-      }
-
-      [[- else if index $task "services" ]]
-      # --- Multiple custom services ---
-      [[- range index $task "services" ]]
-      service {
-        name     = "[[ .name ]]"
-        [[- if .port ]]
-        port     = "[[ .port ]]"
-        [[- end ]]
-        provider = "[[ .provider | default "consul" ]]"
-        tags     = [[ .tags | default list | toJson ]]
-
-        [[- range .checks | default list ]]
-        check {
-          name     = "[[ .name ]]"
-          type     = "[[ .type ]]"
-          [[- if .port ]]
-          port     = "[[ .port ]]"
-          [[- end ]]
-          [[- if eq .type "http" ]]
-          path     = "[[ .path ]]"
-          [[- end ]]
-          interval = "[[ .interval | default "10s" ]]"
-          timeout  = "[[ .timeout | default "2s" ]]"
-          [[- if .check_restart ]]
-          check_restart {
-            limit = [[ .check_restart.limit | default 3 ]]
-            grace = "[[ .check_restart.grace | default "5s" ]]"
-          }
-          [[- end ]]
-        }
-        [[- end ]]
-      }
-      [[- end ]]
-
-      [[- else if index $task "service" ]]
-      # --- Single custom service ---
-      [[- $svc := index $task "service" ]]
-      service {
-        name     = "[[ index $svc "name" ]]"
-        [[- if index $svc "port" ]]
-        port     = "[[ index $svc "port" ]]"
-        [[- end ]]
-        provider = "[[ index $svc "provider" | default "consul" ]]"
-        tags     = [[ index $svc "tags" | default list | toJson ]]
-
-        [[- range index $svc "checks" | default list ]]
-        check {
-          name     = "[[ .name ]]"
-          type     = "[[ .type ]]"
-          [[- if .port ]]
-          port     = "[[ .port ]]"
-          [[- end ]]
-          [[- if eq .type "http" ]]
-          path     = "[[ .path ]]"
-          [[- end ]]
-          interval = "[[ .interval | default "10s" ]]"
-          timeout  = "[[ .timeout | default "2s" ]]"
-          [[- if .check_restart ]]
-          check_restart {
-            limit = [[ .check_restart.limit | default 3 ]]
-            grace = "[[ .check_restart.grace | default "5s" ]]"
-          }
-          [[- end ]]
-        }
-        [[- end ]]
-      }
-      [[- end ]]
-
-      [[- end ]]
-
-      # -----------------------------------------------------------------------
-      # Resource Allocation
-      # -----------------------------------------------------------------------
-
-      [[- $tres := index $task "resources" | default dict ]]
-
-      [[- if index $tres "tier" ]]
-      # --- Named resource tier ---
-      [[- $tier := index (var "resource_tiers" .) (index $tres "tier") ]]
+      # --- Resources ---
+      [[- $explicit := var "resources" . ]]
+      [[- if gt (len $explicit) 0 ]]
+      # Use explicit resources when provided
       resources {
-        cpu    = [[ $tier.cpu ]]
-        memory = [[ $tier.memory ]]
+        [[- if index $explicit "cpu" ]]
+        cpu    = [[ index $explicit "cpu" ]]
+        [[- end ]]
+        [[- if index $explicit "memory" ]]
+        memory = [[ index $explicit "memory" ]]
+        [[- end ]]
+        [[- if index $explicit "memory_max" ]]
+        memory_max = [[ index $explicit "memory_max" ]]
+        [[- end ]]
       }
-
-      [[- else if index $tres "cpu" ]]
-      # --- Direct resource specification ---
-      resources {
-        cpu    = [[ index $tres "cpu" ]]
-        memory = [[ index $tres "memory" ]]
-      }
-
       [[- else ]]
-      # --- Job-level resource tier ---
-      [[- $tier := index (var "resource_tiers" .) (var "resource_tier" .) ]]
+      # Fallback to resource_tier definition when explicit resources are not set
+      [[- $tiers := var "resource_tiers" . ]]
+      [[- $tier_name := var "resource_tier" . ]]
+      [[- $res := index $tiers $tier_name ]]
       resources {
-        cpu    = [[ $tier.cpu ]]
-        memory = [[ $tier.memory ]]
+        [[- if index $res "cpu" ]]
+        cpu    = [[ index $res "cpu" ]]
+        [[- end ]]
+        [[- if index $res "memory" ]]
+        memory = [[ index $res "memory" ]]
+        [[- end ]]
+        # memory_max omitted by default when using tiers
       }
       [[- end ]]
 
-      # -----------------------------------------------------------------------
-      # Termination Behavior
-      # -----------------------------------------------------------------------
-
-      [[- if var "kill_timeout" . ]]
-      kill_timeout = "[[ var "kill_timeout" . ]]"
+      # --- Templates (optional) ---
+      [[- if index $task "templates" ]]
+      [[- range index $task "templates" ]]
+      template {
+        [[- range $k, $v := . ]]
+        [[ $k ]] = [[ $v | toJson ]]
+        [[- end ]]
+      }
       [[- end ]]
-      [[- if var "kill_signal" . ]]
-      kill_signal  = "[[ var "kill_signal" . ]]"
+      [[- end ]]
+
+      # --- Vault configuration (optional) ---
+      [[- if index $task "vault" ]]
+      vault {
+        [[- range $k, $v := index $task "vault" ]]
+        [[ $k ]] = [[ $v | toJson ]]
+        [[- end ]]
+      }
       [[- end ]]
     }
   }
 }
+

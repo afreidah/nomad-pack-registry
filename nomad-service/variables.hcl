@@ -163,6 +163,12 @@ variable "resource_tiers" {
   }
 }
 
+variable "resources" {
+  description = "Explicit resource configuration for the main task (cpu, memory, memory_max). Overrides resource_tier when non-empty."
+  # Type: object but nomad-pack doesn't support it
+  default = {}
+}
+
 # -------------------------------------------------------------------------------
 # Deployment Strategy
 # -------------------------------------------------------------------------------
@@ -362,6 +368,50 @@ variable "additional_tags" {
   description = "Additional Consul tags for standard service"
   type        = list(string)
   default     = []
+}
+
+# -------------------------------------------------------------------------------
+# Traefik Routing Defaults
+#
+# These control how the template generates Traefik tags when
+# standard_service_enabled = true. Jobs generally override traefik_host
+# to match their external hostname (e.g. grafana.munchbox) but can rely
+# on defaults for entrypoints, TLS, and middlewares.
+#
+# - With Consul Connect enabled + standard service:
+#     - Traefik tags are attached to the sidecar service.
+# - Without Consul Connect (standard service only):
+#     - Traefik tags are attached to the main service.
+# -------------------------------------------------------------------------------
+
+variable "traefik_enabled" {
+  description = "Enable Traefik routing for this service (applied to sidecar when Consul Connect is enabled, or main service otherwise)"
+  type        = bool
+  default     = true
+}
+
+variable "traefik_host" {
+  description = "Host used in Traefik router rule (Host(`...`)). If empty, defaults to <job_name>.munchbox inside the template."
+  type        = string
+  default     = ""
+}
+
+variable "traefik_entrypoints" {
+  description = "Traefik entrypoints for the router (comma-separated list if multiple)."
+  type        = string
+  default     = "websecure"
+}
+
+variable "traefik_tls_enabled" {
+  description = "Enable TLS on the Traefik router."
+  type        = bool
+  default     = true
+}
+
+variable "traefik_middlewares" {
+  description = "Traefik middlewares to apply to the router (comma-separated list if multiple)."
+  type        = string
+  default     = "dashboard-allowlan@file"
 }
 
 # -------------------------------------------------------------------------------
