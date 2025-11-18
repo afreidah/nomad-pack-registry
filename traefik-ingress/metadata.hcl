@@ -4,8 +4,8 @@
 # -------------------------------------------------------------------------------
 # Traefik Ingress Controller Pack
 #
-# System job for HTTPS-first reverse proxy with Consul service discovery.
-# Auto-generates self-signed certificates for *.munchbox domains.
+# System job for HTTPS-first reverse proxy with Consul service discovery and
+# native Consul Connect protocol support for service mesh integration.
 # -------------------------------------------------------------------------------
 
 app {
@@ -14,6 +14,6 @@ app {
 
 pack {
   name        = "traefik-ingress"
-  description = "Traefik reverse proxy with Consul service discovery and certificate generation"
-  version     = "1.0.0"
+  description = "Traefik reverse proxy with Consul Connect service mesh integration"
+  version     = "2.0.0"
 }

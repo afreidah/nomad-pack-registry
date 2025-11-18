@@ -32,9 +32,9 @@ variable "priority" {
   default     = 50
 }
 
-# -----------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Placement
-# -----------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 
 variable "ingress_node_constraint" {
   description = "Node selector for ingress role"
@@ -42,14 +42,14 @@ variable "ingress_node_constraint" {
   default     = "ingress"
 }
 
-# -----------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Traefik Configuration
-# -----------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 
 variable "traefik_version" {
   description = "Traefik Docker image version"
   type        = string
-  default     = "v3.5.3"
+  default     = "v3.6.1"
 }
 
 variable "dashboard_port" {
@@ -82,9 +82,9 @@ variable "certificate_days" {
   default     = 3650
 }
 
-# -----------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Consul Integration
-# -----------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 
 variable "consul_address" {
   description = "Consul API address"
@@ -98,9 +98,31 @@ variable "consul_token_path" {
   default     = "kv/data/traefik"
 }
 
-# -----------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+# Consul Connect Service Mesh
+# -------------------------------------------------------------------------------
+
+variable "connect_aware" {
+  description = "Enable Consul Connect protocol support"
+  type        = bool
+  default     = true
+}
+
+variable "connect_by_default" {
+  description = "Route to services via Connect by default"
+  type        = bool
+  default     = true
+}
+
+variable "exposed_by_default" {
+  description = "Expose all services by default (requires traefik.enable=true if false)"
+  type        = bool
+  default     = false
+}
+
+# -------------------------------------------------------------------------------
 # Resources
-# -----------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 
 variable "cpu" {
   description = "CPU allocation"
@@ -114,9 +136,9 @@ variable "memory" {
   default     = 256
 }
 
-# -----------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Vault
-# -----------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 
 variable "vault_enabled" {
   description = "Enable Vault integration"

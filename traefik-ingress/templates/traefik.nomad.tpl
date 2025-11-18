@@ -1,8 +1,12 @@
 # -------------------------------------------------------------------------------
-# Project: Munchbox
-# Author: Alex Freidah
-# -------------------------------------------------------------------------------
-# Traefik Ingress Controller — System Job
+# Traefik Ingress Controller — Consul Connect Service Mesh Gateway
+#
+# Project: Munchbox / Author: Alex Freidah
+#
+# System job for HTTPS-first reverse proxy with native Consul Connect protocol
+# support. Routes external traffic into service mesh via authenticated mTLS
+# connections without requiring Envoy sidecar. Auto-generates self-signed
+# certificates for *.munchbox domains.
 # -------------------------------------------------------------------------------
 
 job "[[ var "job_name" . ]]" {
@@ -11,12 +15,20 @@ job "[[ var "job_name" . ]]" {
   type        = "system"
   node_pool   = "[[ var "node_pool" . ]]"
 
+  # ---------------------------------------------------------------------------
+  #  Job Metadata
+  # ---------------------------------------------------------------------------
+
   meta {
     managed_by = "nomad-pack"
     project    = "munchbox"
     tier       = "infrastructure"
     version    = "[[ var "traefik_version" . ]]"
   }
+
+  # ---------------------------------------------------------------------------
+  #  Update Strategy
+  # ---------------------------------------------------------------------------
 
   update {
     max_parallel      = 1
@@ -26,31 +38,51 @@ job "[[ var "job_name" . ]]" {
     auto_revert       = true
   }
 
+  # ---------------------------------------------------------------------------
+  #  Placement Constraints
+  # ---------------------------------------------------------------------------
+
   constraint {
     attribute = "$${meta.role}"
     operator  = "="
     value     = "[[ var "ingress_node_constraint" . ]]"
   }
 
+  # ---------------------------------------------------------------------------
+  #  Traefik Group
+  # ---------------------------------------------------------------------------
+
   group "traefik" {
+
+    # -----------------------------------------------------------------------
+    #  Network Configuration
+    # -----------------------------------------------------------------------
+
     network {
       mode = "host"
 
+      # --- Dashboard port (LAN-only) ---
       port "dashboard" {
         static = [[ var "dashboard_port" . ]]
         to     = [[ var "dashboard_port" . ]]
       }
 
+      # --- HTTP port (redirects to HTTPS) ---
       port "http" {
         static = [[ var "http_port" . ]]
         to     = [[ var "http_port" . ]]
       }
 
+      # --- HTTPS port ---
       port "https" {
         static = [[ var "https_port" . ]]
         to     = [[ var "https_port" . ]]
       }
     }
+
+    # -----------------------------------------------------------------------
+    #  Restart Policy
+    # -----------------------------------------------------------------------
 
     restart {
       attempts = 3
@@ -60,23 +92,26 @@ job "[[ var "job_name" . ]]" {
     }
 
     # -----------------------------------------------------------------------
-    # Certificate Generation Prestart Task
+    #  Certificate Generation Task
     # -----------------------------------------------------------------------
 
     task "certgen" {
       driver = "docker"
 
+      # --- Lifecycle configuration ---
       lifecycle {
         hook    = "prestart"
         sidecar = false
       }
 
+      # --- Task configuration ---
       config {
         image   = "alpine:latest"
         command = "sh"
         args    = ["-c", "apk add --no-cache openssl && /local/generate-certs.sh"]
       }
 
+      # --- Certificate generation script ---
       template {
         destination = "local/generate-certs.sh"
         perms       = "0755"
@@ -105,6 +140,7 @@ openssl x509 -in $CERT_DIR/munchbox.crt -text -noout | head -5
         EOT
       }
 
+      # --- Resource allocation ---
       resources {
         cpu    = 300
         memory = 128
@@ -112,13 +148,14 @@ openssl x509 -in $CERT_DIR/munchbox.crt -text -noout | head -5
     }
 
     # -----------------------------------------------------------------------
-    # Traefik Reverse Proxy Task
+    #  Traefik Proxy Task
     # -----------------------------------------------------------------------
 
     task "traefik" {
       driver = "docker"
 
       [[- if var "vault_enabled" . ]]
+      # --- Vault integration ---
       vault {
         role = "[[ var "vault_role" . ]]"
       }
@@ -130,6 +167,7 @@ openssl x509 -in $CERT_DIR/munchbox.crt -text -noout | head -5
       }
       [[- end ]]
 
+      # --- Task configuration ---
       config {
         image        = "traefik:[[ var "traefik_version" . ]]"
         network_mode = "host"
@@ -156,43 +194,80 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
         destination = "local/traefik.toml"
         perms       = "0644"
         data        = <<-EOT
+# =========================================================================
+# Traefik Static Configuration
+# =========================================================================
+
+# -------------------------------------------------------------------------
+# Entry Points
+# -------------------------------------------------------------------------
+
 [entryPoints]
   [entryPoints.web]
     address = ":[[ var "http_port" . ]]"
     [entryPoints.web.forwardedHeaders]
-      trustedIPs = ["127.0.0.1/32"]
+      trustedIPs = ["127.0.0.1/32", "192.168.68.0/24"]
 
   [entryPoints.websecure]
     address = ":[[ var "https_port" . ]]"
     [entryPoints.websecure.forwardedHeaders]
-      trustedIPs = ["127.0.0.1/32"]
+      trustedIPs = ["127.0.0.1/32", "192.168.68.0/24"]
 
   [entryPoints.traefik]
     address = ":[[ var "dashboard_port" . ]]"
+
+# -------------------------------------------------------------------------
+# API Dashboard
+# -------------------------------------------------------------------------
 
 [api]
   dashboard = true
   insecure  = false
 
+# -------------------------------------------------------------------------
+# Health Check
+# -------------------------------------------------------------------------
+
 [ping]
   entryPoint = "traefik"
+
+# -------------------------------------------------------------------------
+# Metrics
+# -------------------------------------------------------------------------
 
 [metrics]
   [metrics.prometheus]
     entryPoint = "traefik"
 
+# -------------------------------------------------------------------------
+# Consul Catalog Provider with Connect Support
+# -------------------------------------------------------------------------
+
 [providers.consulCatalog]
   refreshInterval = "15s"
   prefix          = "traefik"
-  exposedByDefault = false
+  
+  # --- Consul Connect service mesh integration ---
+  connectAware     = [[ var "connect_aware" . ]]
+  connectByDefault = [[ var "connect_by_default" . ]]
+  exposedByDefault = [[ var "exposed_by_default" . ]]
+  
   [providers.consulCatalog.endpoint]
     address = "[[ var "consul_address" . ]]"
 {{- with secret "[[ var "consul_token_path" . ]]" }}
     token = "{{ .Data.data.consul_token }}"
 {{- end }}
 
+# -------------------------------------------------------------------------
+# File Provider for Static Routes
+# -------------------------------------------------------------------------
+
 [providers.file]
   filename = "/etc/traefik/traefik_dynamic.toml"
+
+# -------------------------------------------------------------------------
+# Logging
+# -------------------------------------------------------------------------
 
 [accessLog]
 [log]
@@ -206,6 +281,14 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
         change_mode = "restart"
         perms       = "0644"
         data        = <<-EOT
+# =========================================================================
+# Traefik Dynamic Configuration
+# =========================================================================
+
+# -------------------------------------------------------------------------
+# TLS Configuration
+# -------------------------------------------------------------------------
+
 [tls.certificates.0]
   certFile = "/alloc/data/munchbox.crt"
   keyFile  = "/alloc/data/munchbox.key"
@@ -227,11 +310,19 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
     "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
   ]
 
+# -------------------------------------------------------------------------
+# Static Route: Consul UI
+# -------------------------------------------------------------------------
+
 [http.routers.consul]
   rule        = "Host(`consul.munchbox`)"
   entryPoints = ["websecure"]
   service     = "consul-ui"
   middlewares = ["dashboard-allowlan"]
+
+# -------------------------------------------------------------------------
+# Static Route: Traefik Dashboard
+# -------------------------------------------------------------------------
 
 [http.routers.traefik-fallback]
   rule        = "Host(`traefik.munchbox`) || PathPrefix(`/dashboard`) || PathPrefix(`/api`)"
@@ -239,6 +330,10 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
   service     = "api@internal"
   middlewares = ["dashboard-auth", "dashboard-allowlan", "dashboard-redirect"]
   priority    = 2
+
+# -------------------------------------------------------------------------
+# Static Route: Public Resume (HTTP)
+# -------------------------------------------------------------------------
 
 [http.routers.resume-public]
   rule        = "Host(`resume.alexfreidah.com`) || Host(`www.resume.alexfreidah.com`)"
@@ -261,12 +356,20 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
   middlewares = ["redirect-www-to-resume"]
   priority    = 110
 
+# -------------------------------------------------------------------------
+# Static Route: K3s Status (HTTP)
+# -------------------------------------------------------------------------
+
 [http.routers.k3s-status-public]
   rule        = "Host(`k3s-status.alexfreidah.com`)"
   entryPoints = ["web"]
   service     = "health-checker-svc"
   middlewares = ["k3s-status-sec"]
   priority    = 102
+
+# -------------------------------------------------------------------------
+# Static Route: HTTP to HTTPS Redirect
+# -------------------------------------------------------------------------
 
 [http.routers.http-redirect]
   rule        = "HostRegexp(`{host:.+\\.munchbox}`)"
@@ -275,24 +378,48 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
   service     = "ping-svc"
   priority    = 1
 
+# -------------------------------------------------------------------------
+# Static Route: Ping
+# -------------------------------------------------------------------------
+
 [http.routers.ping]
   rule        = "Host(`traefik.munchbox`) && Path(`/ping`)"
   entryPoints = ["websecure"]
   service     = "ping-svc"
 
+# -------------------------------------------------------------------------
+# Middleware: Dashboard Authentication
+# -------------------------------------------------------------------------
+
 [http.middlewares.dashboard-auth.basicAuth]
   users = ["alex:$2y$05$2pwj9TDZZ29xWxv.eUAKLeKOhm/RrbbrbNewMkzjg1aGm4Bp81yKS"]
 
+# -------------------------------------------------------------------------
+# Middleware: Dashboard LAN Access
+# -------------------------------------------------------------------------
+
 [http.middlewares.dashboard-allowlan.ipAllowList]
   sourceRange = ["192.168.68.0/24", "127.0.0.1/32"]
+
+# -------------------------------------------------------------------------
+# Middleware: Dashboard Redirect
+# -------------------------------------------------------------------------
 
 [http.middlewares.dashboard-redirect.redirectRegex]
   regex       = "^https?://traefik\\.munchbox/?$"
   replacement = "https://traefik.munchbox/dashboard/"
   permanent   = true
 
+# -------------------------------------------------------------------------
+# Middleware: HTTPS Redirect
+# -------------------------------------------------------------------------
+
 [http.middlewares.redirect-https.redirectScheme]
   scheme = "https"
+
+# -------------------------------------------------------------------------
+# Middleware: Resume Rate Limiting
+# -------------------------------------------------------------------------
 
 [http.middlewares.resume-ratelimit.rateLimit]
   average = 20
@@ -300,13 +427,25 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
   [http.middlewares.resume-ratelimit.rateLimit.sourceCriterion]
     requestHeaderName = "CF-Connecting-IP"
 
+# -------------------------------------------------------------------------
+# Middleware: Resume Security Headers
+# -------------------------------------------------------------------------
+
 [http.middlewares.resume-sec.headers.customResponseHeaders]
   Cross-Origin-Embedder-Policy = "unsafe-none"
   Cross-Origin-Opener-Policy   = "unsafe-none"
   Cross-Origin-Resource-Policy = "cross-origin"
 
+# -------------------------------------------------------------------------
+# Middleware: Resume In-Flight Limit
+# -------------------------------------------------------------------------
+
 [http.middlewares.resume-inflight.inFlightReq]
   amount = 100
+
+# -------------------------------------------------------------------------
+# Middleware: WWW Redirects
+# -------------------------------------------------------------------------
 
 [http.middlewares.redirect-resume-www.redirectRegex]
   regex       = "^https?://www\\.resume\\.alexfreidah\\.com/(.*)"
@@ -322,6 +461,10 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
   regex       = "^https?://www\\.alexfreidah\\.com/(.*)"
   replacement = "https://resume.alexfreidah.com/$1"
   permanent   = true
+
+# -------------------------------------------------------------------------
+# Middleware: Security Headers (Resume)
+# -------------------------------------------------------------------------
 
 [http.middlewares.resume-sec.headers]
   stsSeconds           = 31536000
@@ -352,6 +495,10 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
     upgrade-insecure-requests;
   """
 
+# -------------------------------------------------------------------------
+# Middleware: Security Headers (K3s Status)
+# -------------------------------------------------------------------------
+
 [http.middlewares.k3s-status-sec.headers]
   stsSeconds              = 31536000
   stsIncludeSubdomains    = true
@@ -381,6 +528,10 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
     upgrade-insecure-requests;
   """
 
+# -------------------------------------------------------------------------
+# Static Services
+# -------------------------------------------------------------------------
+
 [http.services.consul-ui.loadBalancer.servers.0]
   url = "http://127.0.0.1:8500/ui/"
 
@@ -395,10 +546,12 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
         EOT
       }
 
+      # --- Runtime environment ---
       env {
         TZ = "UTC"
       }
 
+      # --- Service registration: HTTPS endpoint ---
       service {
         name = "traefik"
         port = "https"
@@ -411,6 +564,7 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
         }
       }
 
+      # --- Service registration: Dashboard ---
       service {
         name = "traefik-dashboard"
         port = "dashboard"
@@ -424,6 +578,7 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
         }
       }
 
+      # --- Resource allocation ---
       resources {
         cpu    = [[ var "cpu" . ]]
         memory = [[ var "memory" . ]]
