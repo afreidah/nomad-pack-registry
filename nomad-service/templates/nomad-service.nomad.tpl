@@ -180,6 +180,7 @@ job "[[ var "job_name" . ]]" {
       provider     = "consul"
 
       tags = [
+        "traefik.enable=false",
         [[- range var "additional_tags" . ]]
         "[[ . ]]",
         [[- end ]]

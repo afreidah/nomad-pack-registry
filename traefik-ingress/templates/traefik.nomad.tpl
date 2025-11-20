@@ -58,7 +58,7 @@ job "[[ var "job_name" . ]]" {
     # ---------------------------------------------------------------------------
 
     network {
-      mode = "bridge"
+      mode = "host"
 
       # --- Dashboard port (LAN-only) ---
       port "dashboard" {
@@ -94,7 +94,7 @@ job "[[ var "job_name" . ]]" {
     # Service Registration
     # ---------------------------------------------------------------------------
 
-    # --- Main HTTPS service with Consul Connect ---
+    # --- Main HTTPS service (no Connect block needed) ---
     service {
       name = "traefik"
       port = "https"
@@ -103,19 +103,6 @@ job "[[ var "job_name" . ]]" {
         "ingress",
         "reverse-proxy"
       ]
-
-      connect {
-        sidecar_service {
-          proxy {}
-        }
-
-        sidecar_task {
-          resources {
-            cpu    = 200
-            memory = 128
-          }
-        }
-      }
 
       check {
         name     = "traefik-https"
@@ -220,6 +207,7 @@ openssl x509 -in $CERT_DIR/munchbox.crt -text -noout | head -5
       # --- Task configuration ---
       config {
         image = "traefik:[[ var "traefik_version" . ]]"
+        network_mode = "host"
         ports = ["http", "https", "dashboard"]
         volumes = [
           "local/traefik.toml:/etc/traefik/traefik.toml",
