@@ -1,5 +1,5 @@
 # -------------------------------------------------------------------------------
-# Service Deployment — [[ or .job_description "Managed service deployment" ]]
+# Service Deployment - [[ or .job_description "Managed service deployment" ]]
 #
 # Project: Munchbox / Author: Alex Freidah
 # -------------------------------------------------------------------------------
@@ -13,12 +13,12 @@ job "[[ var "job_name" . ]]" {
   [[- end ]]
   priority    = [[ var "priority" . ]]
 
-  # -------------------------------------------------------------------------------
+  # -----------------------------------------------------------------------------
   # Job Metadata
   #
   # Tags and categorization for monitoring, organization, and filtering. Uses
   # meta_profile to pull tier designation from predefined profiles.
-  # -------------------------------------------------------------------------------
+  # -----------------------------------------------------------------------------
 
   # --- Resolve meta profile to get tier designation ---
   [[- $meta_profile := var "meta_profile" . ]]
@@ -33,19 +33,16 @@ job "[[ var "job_name" . ]]" {
     [[- end ]]
   }
 
-  # -------------------------------------------------------------------------------
+  # -----------------------------------------------------------------------------
   # Update Strategy
   #
   # Controls how Nomad deploys updates to running allocations. Service jobs use
   # deployment profiles (standard, canary, rolling) while system jobs use simple
   # rolling updates with stagger.
-  # -------------------------------------------------------------------------------
+  # -----------------------------------------------------------------------------
 
   [[- if eq (var "job_type" .) "service" ]]
-  # -----------------------------------------------------------------------
-  # Service Job Deployment Profile
-  # -----------------------------------------------------------------------
-
+  # --- Service job deployment ---
   [[- $profile := index (var "deployment_profiles" .) (var "deployment_profile" .) ]]
 
   update {
@@ -62,10 +59,7 @@ job "[[ var "job_name" . ]]" {
   }
 
   [[- else if eq (var "job_type" .) "system" ]]
-  # -----------------------------------------------------------------------
-  # System Job Rolling Update
-  # -----------------------------------------------------------------------
-
+  # --- System job rolling update ---
   update {
     max_parallel     = 1
     min_healthy_time = "10s"
@@ -75,22 +69,19 @@ job "[[ var "job_name" . ]]" {
   }
   [[- end ]]
 
-  # -------------------------------------------------------------------------------
+  # -----------------------------------------------------------------------------
   # Task Group
   #
   # Defines the collection of tasks that run together on the same node. Includes
   # placement constraints, networking, volumes, and restart/reschedule policies.
-  # -------------------------------------------------------------------------------
+  # -----------------------------------------------------------------------------
 
   group "[[ var "job_name" . ]]" {
     [[- if eq (var "job_type" .) "service" ]]
     count = [[ var "count" . ]]
     [[- end ]]
 
-    # -----------------------------------------------------------------------
-    # Placement Constraints
-    # -----------------------------------------------------------------------
-
+    # --- Placement constraints ---
     [[- range var "constraints" . ]]
     constraint {
       attribute = "[[ .attribute ]]"
@@ -103,10 +94,7 @@ job "[[ var "job_name" . ]]" {
     }
     [[- end ]]
 
-    # -----------------------------------------------------------------------
-    # Network Configuration
-    # -----------------------------------------------------------------------
-
+    # --- Network configuration ---
     network {
       [[- if eq (var "network_preset" .) "host" ]]
       mode = "host"
@@ -114,7 +102,6 @@ job "[[ var "job_name" . ]]" {
       mode = "[[ var "network_preset" . ]]"
       [[- end ]]
 
-      # --- Port definitions ---
       [[- range var "ports" . ]]
       port "[[ .name ]]" {
         [[- if .static ]]
@@ -125,7 +112,6 @@ job "[[ var "job_name" . ]]" {
       }
       [[- end ]]
 
-      # --- DNS configuration for non-host networking ---
       [[- $dns := var "dns_servers" . ]]
       [[- if and (ne (var "network_preset" .) "host") (gt (len $dns) 0) ]]
       dns {
@@ -140,10 +126,7 @@ job "[[ var "job_name" . ]]" {
       [[- end ]]
     }
 
-    # -----------------------------------------------------------------------
-    # Persistent Storage
-    # -----------------------------------------------------------------------
-
+    # --- Persistent storage ---
     [[- $vol := var "volume" . ]]
     [[- if and $vol (index $vol "name") ]]
     volume "[[ index $vol "name" ]]" {
@@ -153,33 +136,48 @@ job "[[ var "job_name" . ]]" {
     }
     [[- end ]]
 
-    # -----------------------------------------------------------------------
-    # Consul Connect Service Registration (Group Level)
+    # --- Restart policy ---
+    restart {
+      attempts = [[ var "restart_attempts" . ]]
+      interval = "[[ var "restart_interval" . ]]"
+      delay    = "[[ var "restart_delay" . ]]"
+      mode     = "[[ var "restart_mode" . ]]"
+    }
+
+    # --- Reschedule policy ---
+    [[- $reschedule := index (var "reschedule_presets" .) (var "reschedule_preset" .) ]]
+    reschedule {
+      [[- if not $reschedule.unlimited ]]
+      attempts       = [[ $reschedule.max_reschedules ]]
+      interval       = "[[ $reschedule.interval ]]"
+      [[- end ]]
+      delay          = "[[ $reschedule.delay ]]"
+      delay_function = "[[ $reschedule.delay_function ]]"
+      unlimited      = [[ $reschedule.unlimited ]]
+    }
+
+    # -----------------------------------------------------------------------------
+    # Service Registration
     #
-    # This section wires service registration and, when enabled, Consul Connect.
-    # Traefik routing defaults are applied based on consul_connect_enabled and
-    # standard_service_enabled:
+    # Service registration mode is determined by consul_connect_enabled and
+    # traefik_enabled variables:
     #
-    # - Connect + standard service:
-    #     - Main service: classification tags only (mesh identity).
-    #     - Sidecar service: Traefik routing tags (edge entrypoint).
-    #
-    # - Non-Connect + standard service:
-    #     - Main service: Traefik routing tags and classification tags.
-    #
-    # Additional tags are always appended from additional_tags.
-    # -----------------------------------------------------------------------
+    # Connect + Traefik: Connect service with Traefik tags on sidecar proxy
+    # Connect only: Connect service without HTTP ingress
+    # Traefik only: Standard service with Traefik tags
+    # Neither: Standard internal service
+    # -----------------------------------------------------------------------------
 
     [[- if var "consul_connect_enabled" . ]]
     [[- if var "standard_service_enabled" . ]]
-    # --- Connect service with standard configuration ---
+    # --- Consul Connect service with optional HTTP ingress ---
     service {
       name         = "[[ var "job_name" . ]]"
       port         = "[[ var "standard_service_port" . ]]"
       address_mode = "alloc"
       provider     = "consul"
+
       tags = [
-        # Classification tags only; Traefik tags go on the sidecar.
         [[- range var "additional_tags" . ]]
         "[[ . ]]",
         [[- end ]]
@@ -188,7 +186,7 @@ job "[[ var "job_name" . ]]" {
       connect {
         sidecar_service {
           [[- if var "traefik_enabled" . ]]
-          # --- Traefik routing via sidecar service (edge entrypoint) ---
+          # --- Traefik routing via sidecar proxy ---
           tags = [
             "traefik.enable=true",
             "traefik.http.routers.[[ var "job_name" . ]].rule=Host(`[[ default (printf "%s.munchbox" (var "job_name" .)) (var "traefik_host" .) ]]`)",
@@ -203,7 +201,7 @@ job "[[ var "job_name" . ]]" {
             [[- end ]]
           ]
           [[- else ]]
-          # --- Traefik explicitly disabled for this sidecar ---
+          # --- Internal mesh service (no HTTP ingress) ---
           tags = [
             "traefik.enable=false",
             [[- range var "additional_tags" . ]]
@@ -213,6 +211,18 @@ job "[[ var "job_name" . ]]" {
           [[- end ]]
 
           proxy {
+            [[- if var "traefik_enabled" . ]]
+            # --- Expose service for external HTTP access ---
+            expose {
+              path {
+                path            = "/"
+                protocol        = "http"
+                local_path_port = [[ var "standard_service_port_number" . ]]
+                listener_port   = "[[ var "standard_service_port" . ]]"
+              }
+            }
+            [[- end ]]
+
             [[- range var "connect_upstreams" . ]]
             upstreams {
               destination_name = "[[ .destination_name ]]"
@@ -244,7 +254,7 @@ job "[[ var "job_name" . ]]" {
     }
 
     [[- else ]]
-    # --- Connect service with custom configuration ---
+    # --- Custom Connect service from task.service ---
     [[- $task := var "task" . ]]
     [[- $svc := index $task "service" ]]
 
@@ -296,7 +306,7 @@ job "[[ var "job_name" . ]]" {
 
     [[- else ]]
     [[- if var "standard_service_enabled" . ]]
-    # --- Non-Connect standard service (Traefik on main service) ---
+    # --- Standard non-Connect service ---
     service {
       name     = "[[ var "job_name" . ]]"
       port     = "[[ var "standard_service_port" . ]]"
@@ -340,24 +350,33 @@ job "[[ var "job_name" . ]]" {
     [[- end ]]
     [[- end ]]
 
-    # -----------------------------------------------------------------------
-    # Main Task Definition
+    # -----------------------------------------------------------------------------
+    # Main Task
     #
-    # Single primary task for this group. Task configuration is provided via
-    # the "task" variable map to allow reuse across jobs and environments.
-    # -----------------------------------------------------------------------
+    # Single primary task for this group. Task configuration is provided via the
+    # "task" variable map to allow reuse across jobs and environments.
+    # -----------------------------------------------------------------------------
 
     [[- $task := var "task" . ]]
 
     task "[[ index $task "name" ]]" {
       driver = "[[ index $task "driver" ]]"
 
-      # --- Task user (optional) ---
       [[- if index $task "user" ]]
       user = "[[ index $task "user" ]]"
       [[- end ]]
 
-      # --- Task config map ---
+      # --- Volume mount ---
+      [[- $vol := var "volume" . ]]
+      [[- if and $vol (index $vol "name") (index $vol "mount_path") ]]
+      volume_mount {
+        volume      = "[[ index $vol "name" ]]"
+        destination = "[[ index $vol "mount_path" ]]"
+        read_only   = [[ index $vol "read_only" | default false ]]
+      }
+      [[- end ]]
+
+      # --- Task configuration ---
       [[- if index $task "config" ]]
       config {
         [[- range $k, $v := index $task "config" ]]
@@ -378,7 +397,6 @@ job "[[ var "job_name" . ]]" {
       # --- Resources ---
       [[- $explicit := var "resources" . ]]
       [[- if gt (len $explicit) 0 ]]
-      # Use explicit resources when provided
       resources {
         [[- if index $explicit "cpu" ]]
         cpu    = [[ index $explicit "cpu" ]]
@@ -391,7 +409,6 @@ job "[[ var "job_name" . ]]" {
         [[- end ]]
       }
       [[- else ]]
-      # Fallback to resource_tier definition when explicit resources are not set
       [[- $tiers := var "resource_tiers" . ]]
       [[- $tier_name := var "resource_tier" . ]]
       [[- $res := index $tiers $tier_name ]]
@@ -402,11 +419,45 @@ job "[[ var "job_name" . ]]" {
         [[- if index $res "memory" ]]
         memory = [[ index $res "memory" ]]
         [[- end ]]
-        # memory_max omitted by default when using tiers
       }
       [[- end ]]
 
-      # --- Templates (optional) ---
+      # --- External templates ---
+      [[- if var "external_files" . ]]
+      [[- $ext_files := var "external_files" . ]]
+      [[- if index $ext_files "enabled" ]]
+      [[- if var "external_templates" . ]]
+      [[- range var "external_templates" . ]]
+      template {
+        destination = "[[ .destination ]]"
+        [[- if .env ]]
+        env = [[ .env ]]
+        [[- end ]]
+        [[- if .perms ]]
+        perms = "[[ .perms ]]"
+        [[- end ]]
+        [[- if .change_mode ]]
+        change_mode = "[[ .change_mode ]]"
+        [[- end ]]
+        [[- if .change_signal ]]
+        change_signal = "[[ .change_signal ]]"
+        [[- end ]]
+        [[- if .left_delimiter ]]
+        left_delimiter = "[[ .left_delimiter ]]"
+        [[- end ]]
+        [[- if .right_delimiter ]]
+        right_delimiter = "[[ .right_delimiter ]]"
+        [[- end ]]
+        data = <<EOH
+[[ fileContents (printf "%s/%s" (index $ext_files "base_path") .source_file) ]]
+EOH
+      }
+      [[- end ]]
+      [[- end ]]
+      [[- end ]]
+      [[- end ]]
+
+      # --- Inline templates ---
       [[- if index $task "templates" ]]
       [[- range index $task "templates" ]]
       template {
@@ -417,15 +468,25 @@ job "[[ var "job_name" . ]]" {
       [[- end ]]
       [[- end ]]
 
-      # --- Vault configuration (optional) ---
-      [[- if index $task "vault" ]]
+      # --- Vault integration ---
+      [[- if or (var "vault_role" .) (index $task "vault") ]]
       vault {
+        [[- if var "vault_role" . ]]
+        policies = ["[[ var "vault_role" . ]]"]
+        [[- end ]]
+        [[- if index $task "vault" ]]
         [[- range $k, $v := index $task "vault" ]]
         [[ $k ]] = [[ $v | toJson ]]
         [[- end ]]
+        [[- else ]]
+        change_mode = "restart"
+        [[- end ]]
       }
       [[- end ]]
+
+      # --- Termination behavior ---
+      kill_timeout = "[[ var "kill_timeout" . ]]"
+      kill_signal  = "[[ var "kill_signal" . ]]"
     }
   }
 }
-
