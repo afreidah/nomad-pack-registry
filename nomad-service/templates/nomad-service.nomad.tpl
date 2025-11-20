@@ -144,7 +144,8 @@ job "[[ var "job_name" . ]]" {
       mode     = "[[ var "restart_mode" . ]]"
     }
 
-    # --- Reschedule policy ---
+    [[- if eq (var "job_type" .) "service" ]]
+    # --- Reschedule policy (service jobs only) ---
     [[- $reschedule := index (var "reschedule_presets" .) (var "reschedule_preset" .) ]]
     reschedule {
       [[- if not $reschedule.unlimited ]]
@@ -155,6 +156,7 @@ job "[[ var "job_name" . ]]" {
       delay_function = "[[ $reschedule.delay_function ]]"
       unlimited      = [[ $reschedule.unlimited ]]
     }
+    [[- end ]]
 
     # -----------------------------------------------------------------------------
     # Service Registration
@@ -189,6 +191,7 @@ job "[[ var "job_name" . ]]" {
           # --- Traefik routing via sidecar proxy ---
           tags = [
             "traefik.enable=true",
+            "traefik.consulcatalog.connect=true",
             "traefik.http.routers.[[ var "job_name" . ]].rule=Host(`[[ default (printf "%s.munchbox" (var "job_name" .)) (var "traefik_host" .) ]]`)",
             "traefik.http.routers.[[ var "job_name" . ]].entrypoints=[[ var "traefik_entrypoints" . ]]",
             [[- if var "traefik_tls_enabled" . ]]
@@ -246,7 +249,9 @@ job "[[ var "job_name" . ]]" {
         type         = "http"
         port         = "[[ var "standard_service_port" . ]]"
         path         = "[[ var "standard_http_check_path" . ]]"
+        [[- if ne (var "network_preset" .) "host" ]]
         address_mode = "alloc"
+        [[- end ]]
         interval     = "10s"
         timeout      = "3s"
       }
@@ -296,7 +301,9 @@ job "[[ var "job_name" . ]]" {
         type         = "http"
         port         = "[[ var "standard_service_port" . ]]"
         path         = "[[ var "standard_http_check_path" . ]]"
+        [[- if ne (var "network_preset" .) "host" ]]
         address_mode = "alloc"
+        [[- end ]]
         interval     = "10s"
         timeout      = "3s"
       }
@@ -341,7 +348,9 @@ job "[[ var "job_name" . ]]" {
         type         = "http"
         port         = "[[ var "standard_service_port" . ]]"
         path         = "[[ var "standard_http_check_path" . ]]"
+        [[- if ne (var "network_preset" .) "host" ]]
         address_mode = "alloc"
+        [[- end ]]
         interval     = "10s"
         timeout      = "3s"
       }

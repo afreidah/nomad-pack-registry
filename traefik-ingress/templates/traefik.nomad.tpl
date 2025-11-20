@@ -3,10 +3,9 @@
 #
 # Project: Munchbox / Author: Alex Freidah
 #
-# System job for HTTPS-first reverse proxy with native Consul Connect protocol
-# support. Routes external traffic into service mesh via authenticated mTLS
-# connections without requiring Envoy sidecar. Auto-generates self-signed
-# certificates for *.munchbox domains.
+# System job for HTTPS-first reverse proxy with Consul Connect service mesh
+# integration. Routes external traffic into service mesh via authenticated mTLS
+# connections. Auto-generates self-signed certificates for *.munchbox domains.
 # -------------------------------------------------------------------------------
 
 job "[[ var "job_name" . ]]" {
@@ -15,9 +14,9 @@ job "[[ var "job_name" . ]]" {
   type        = "system"
   node_pool   = "[[ var "node_pool" . ]]"
 
-  # ---------------------------------------------------------------------------
-  #  Job Metadata
-  # ---------------------------------------------------------------------------
+  # -----------------------------------------------------------------------------
+  # Job Metadata
+  # -----------------------------------------------------------------------------
 
   meta {
     managed_by = "nomad-pack"
@@ -26,9 +25,9 @@ job "[[ var "job_name" . ]]" {
     version    = "[[ var "traefik_version" . ]]"
   }
 
-  # ---------------------------------------------------------------------------
-  #  Update Strategy
-  # ---------------------------------------------------------------------------
+  # -----------------------------------------------------------------------------
+  # Update Strategy
+  # -----------------------------------------------------------------------------
 
   update {
     max_parallel      = 1
@@ -38,9 +37,9 @@ job "[[ var "job_name" . ]]" {
     auto_revert       = true
   }
 
-  # ---------------------------------------------------------------------------
-  #  Placement Constraints
-  # ---------------------------------------------------------------------------
+  # -----------------------------------------------------------------------------
+  # Placement Constraints
+  # -----------------------------------------------------------------------------
 
   constraint {
     attribute = "$${meta.role}"
@@ -48,18 +47,18 @@ job "[[ var "job_name" . ]]" {
     value     = "[[ var "ingress_node_constraint" . ]]"
   }
 
-  # ---------------------------------------------------------------------------
-  #  Traefik Group
-  # ---------------------------------------------------------------------------
+  # -----------------------------------------------------------------------------
+  # Traefik Group
+  # -----------------------------------------------------------------------------
 
   group "traefik" {
 
-    # -----------------------------------------------------------------------
-    #  Network Configuration
-    # -----------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    # Network Configuration
+    # ---------------------------------------------------------------------------
 
     network {
-      mode = "host"
+      mode = "bridge"
 
       # --- Dashboard port (LAN-only) ---
       port "dashboard" {
@@ -80,9 +79,9 @@ job "[[ var "job_name" . ]]" {
       }
     }
 
-    # -----------------------------------------------------------------------
-    #  Restart Policy
-    # -----------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    # Restart Policy
+    # ---------------------------------------------------------------------------
 
     restart {
       attempts = 3
@@ -91,9 +90,60 @@ job "[[ var "job_name" . ]]" {
       mode     = "fail"
     }
 
-    # -----------------------------------------------------------------------
-    #  Certificate Generation Task
-    # -----------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    # Service Registration
+    # ---------------------------------------------------------------------------
+
+    # --- Main HTTPS service with Consul Connect ---
+    service {
+      name = "traefik"
+      port = "https"
+
+      tags = [
+        "ingress",
+        "reverse-proxy"
+      ]
+
+      connect {
+        sidecar_service {
+          proxy {}
+        }
+
+        sidecar_task {
+          resources {
+            cpu    = 200
+            memory = 128
+          }
+        }
+      }
+
+      check {
+        name     = "traefik-https"
+        type     = "http"
+        path     = "/ping"
+        port     = "dashboard"
+        interval = "10s"
+        timeout  = "2s"
+      }
+    }
+
+    # --- Dashboard service ---
+    service {
+      name = "traefik-dashboard"
+      port = "dashboard"
+
+      check {
+        name     = "traefik-ping"
+        type     = "http"
+        path     = "/ping"
+        interval = "10s"
+        timeout  = "2s"
+      }
+    }
+
+    # ---------------------------------------------------------------------------
+    # Certificate Generation Task
+    # ---------------------------------------------------------------------------
 
     task "certgen" {
       driver = "docker"
@@ -147,9 +197,9 @@ openssl x509 -in $CERT_DIR/munchbox.crt -text -noout | head -5
       }
     }
 
-    # -----------------------------------------------------------------------
-    #  Traefik Proxy Task
-    # -----------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    # Traefik Proxy Task
+    # ---------------------------------------------------------------------------
 
     task "traefik" {
       driver = "docker"
@@ -169,9 +219,8 @@ openssl x509 -in $CERT_DIR/munchbox.crt -text -noout | head -5
 
       # --- Task configuration ---
       config {
-        image        = "traefik:[[ var "traefik_version" . ]]"
-        network_mode = "host"
-        ports        = ["http", "https", "dashboard"]
+        image = "traefik:[[ var "traefik_version" . ]]"
+        ports = ["http", "https", "dashboard"]
         volumes = [
           "local/traefik.toml:/etc/traefik/traefik.toml",
           "local/traefik_dynamic.toml:/etc/traefik/traefik_dynamic.toml"
@@ -549,33 +598,6 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
       # --- Runtime environment ---
       env {
         TZ = "UTC"
-      }
-
-      # --- Service registration: HTTPS endpoint ---
-      service {
-        name = "traefik"
-        port = "https"
-
-        check {
-          name     = "traefik-https"
-          type     = "tcp"
-          interval = "10s"
-          timeout  = "2s"
-        }
-      }
-
-      # --- Service registration: Dashboard ---
-      service {
-        name = "traefik-dashboard"
-        port = "dashboard"
-
-        check {
-          name     = "traefik-ping"
-          type     = "http"
-          path     = "/ping"
-          interval = "10s"
-          timeout  = "2s"
-        }
       }
 
       # --- Resource allocation ---
