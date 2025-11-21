@@ -199,7 +199,6 @@ job "[[ var "job_name" . ]]" {
             "traefik.http.routers.[[ var "job_name" . ]].tls=true",
             [[- end ]]
             "traefik.http.routers.[[ var "job_name" . ]].middlewares=[[ var "traefik_middlewares" . ]]",
-            "traefik.http.services.[[ var "job_name" . ]].loadbalancer.server.port=[[ var "standard_service_port_number" . ]]",
             [[- range var "additional_tags" . ]]
             "[[ . ]]",
             [[- end ]]
@@ -222,7 +221,6 @@ job "[[ var "job_name" . ]]" {
                 path            = "/"
                 protocol        = "http"
                 local_path_port = [[ var "standard_service_port_number" . ]]
-                listener_port   = "[[ var "standard_service_port" . ]]"
               }
             }
             [[- end ]]
