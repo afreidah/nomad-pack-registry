@@ -283,6 +283,7 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
 [providers.consulCatalog]
   refreshInterval = "15s"
   prefix          = "traefik"
+  watch           = true
 
   # --- Consul Connect service mesh integration ---
   connectAware     = [[ var "connect_aware" . ]]
@@ -294,6 +295,7 @@ CONSUL_TOKEN={{ .Data.data.consul_token }}
 {{- with secret "[[ var "consul_token_path" . ]]" }}
     token = "{{ .Data.data.consul_token }}"
 {{- end }}
+    endpointWaitTime = "0s"
 
 # -------------------------------------------------------------------------
 # File Provider for Static Routes
