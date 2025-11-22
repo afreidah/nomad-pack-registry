@@ -112,6 +112,13 @@ job "[[ var "job_name" . ]]" {
       }
       [[- end ]]
 
+      [[- if and (var "consul_connect_enabled" .) (var "traefik_enabled" .) (ne (var "network_preset" .) "host") ]]
+      # --- Exposed HTTP port for Traefik (Connect services only) ---
+      port "exposed_http" {
+        to = -1
+      }
+      [[- end ]]
+
       [[- $dns := var "dns_servers" . ]]
       [[- if and (ne (var "network_preset" .) "host") (gt (len $dns) 0) ]]
       dns {
@@ -164,7 +171,7 @@ job "[[ var "job_name" . ]]" {
     # Service registration mode is determined by consul_connect_enabled and
     # traefik_enabled variables:
     #
-    # Connect + Traefik: Connect service with Traefik tags on sidecar proxy
+    # Connect + Traefik: Connect service with exposed HTTP for Traefik routing
     # Connect only: Connect service without HTTP ingress
     # Traefik only: Standard service with Traefik tags
     # Neither: Standard internal service
@@ -172,10 +179,10 @@ job "[[ var "job_name" . ]]" {
 
     [[- if var "consul_connect_enabled" . ]]
     [[- if var "standard_service_enabled" . ]]
-    # --- Consul Connect service with optional HTTP ingress ---
+    # --- Consul Connect service for mesh communication ---
     service {
       name         = "[[ var "job_name" . ]]"
-      port         = "[[ var "standard_service_port" . ]]"
+      port         = [[ var "standard_service_port_number" . ]]
       address_mode = "alloc"
       provider     = "consul"
 
@@ -188,32 +195,23 @@ job "[[ var "job_name" . ]]" {
 
       connect {
         sidecar_service {
-          [[- if var "traefik_enabled" . ]]
-          # --- Traefik routing via sidecar proxy ---
           tags = [
-            "traefik.enable=true",
-            "traefik.consulcatalog.connect=true",
-            "traefik.http.routers.[[ var "job_name" . ]].rule=Host(`[[ default (printf "%s.munchbox" (var "job_name" .)) (var "traefik_host" .) ]]`)",
-            "traefik.http.routers.[[ var "job_name" . ]].entrypoints=[[ var "traefik_entrypoints" . ]]",
-            [[- if var "traefik_tls_enabled" . ]]
-            "traefik.http.routers.[[ var "job_name" . ]].tls=true",
-            [[- end ]]
-            "traefik.http.routers.[[ var "job_name" . ]].middlewares=[[ var "traefik_middlewares" . ]]",
-            [[- range var "additional_tags" . ]]
-            "[[ . ]]",
-            [[- end ]]
+            "traefik.enable=false"
           ]
-          [[- else ]]
-          # --- Internal mesh service (no HTTP ingress) ---
-          tags = [
-            "traefik.enable=false",
-            [[- range var "additional_tags" . ]]
-            "[[ . ]]",
-            [[- end ]]
-          ]
-          [[- end ]]
 
           proxy {
+            [[- if var "traefik_enabled" . ]]
+            # --- Expose full HTTP interface for external access ---
+            expose {
+              path {
+                path            = "/"
+                protocol        = "http"
+                local_path_port = [[ var "standard_service_port_number" . ]]
+                listener_port   = "exposed_http"
+              }
+            }
+            [[- end ]]
+
             [[- range var "connect_upstreams" . ]]
             upstreams {
               destination_name = "[[ .destination_name ]]"
@@ -233,19 +231,37 @@ job "[[ var "job_name" . ]]" {
 
       [[- if var "standard_http_check_enabled" . ]]
       check {
-        expose       = true
-        name         = "[[ var "job_name" . ]]-ready"
-        type         = "http"
-        port         = "[[ var "standard_service_port" . ]]"
-        path         = "[[ var "standard_http_check_path" . ]]"
-        [[- if ne (var "network_preset" .) "host" ]]
-        address_mode = "alloc"
-        [[- end ]]
-        interval     = "10s"
-        timeout      = "3s"
+        expose   = true
+        name     = "[[ var "job_name" . ]]-ready"
+        type     = "http"
+        path     = "[[ var "standard_http_check_path" . ]]"
+        interval = "10s"
+        timeout  = "3s"
       }
       [[- end ]]
     }
+
+    [[- if var "traefik_enabled" . ]]
+    # --- Exposed HTTP service for Traefik routing ---
+    service {
+      name     = "[[ var "job_name" . ]]-http"
+      port     = "exposed_http"
+      provider = "consul"
+
+      tags = [
+        "traefik.enable=true",
+        "traefik.http.routers.[[ var "job_name" . ]].rule=Host(`[[ default (printf "%s.munchbox" (var "job_name" .)) (var "traefik_host" .) ]]`)",
+        "traefik.http.routers.[[ var "job_name" . ]].entrypoints=[[ var "traefik_entrypoints" . ]]",
+        [[- if var "traefik_tls_enabled" . ]]
+        "traefik.http.routers.[[ var "job_name" . ]].tls=true",
+        [[- end ]]
+        "traefik.http.routers.[[ var "job_name" . ]].middlewares=[[ var "traefik_middlewares" . ]]",
+        [[- range var "additional_tags" . ]]
+        "[[ . ]]",
+        [[- end ]]
+      ]
+    }
+    [[- end ]]
 
     [[- else ]]
     # --- Custom Connect service from task.service ---
@@ -286,16 +302,12 @@ job "[[ var "job_name" . ]]" {
 
       [[- if var "standard_http_check_enabled" . ]]
       check {
-        expose       = true
-        name         = "[[ var "job_name" . ]]-ready"
-        type         = "http"
-        port         = "[[ var "standard_service_port" . ]]"
-        path         = "[[ var "standard_http_check_path" . ]]"
-        [[- if ne (var "network_preset" .) "host" ]]
-        address_mode = "alloc"
-        [[- end ]]
-        interval     = "10s"
-        timeout      = "3s"
+        expose   = true
+        name     = "[[ var "job_name" . ]]-ready"
+        type     = "http"
+        path     = "[[ var "standard_http_check_path" . ]]"
+        interval = "10s"
+        timeout  = "3s"
       }
       [[- end ]]
     }
@@ -318,7 +330,9 @@ job "[[ var "job_name" . ]]" {
         "traefik.http.routers.[[ var "job_name" . ]].tls=true",
         [[- end ]]
         "traefik.http.routers.[[ var "job_name" . ]].middlewares=[[ var "traefik_middlewares" . ]]",
+        [[- if eq (var "network_preset" .) "host" ]]
         "traefik.http.services.[[ var "job_name" . ]].loadbalancer.server.port=[[ var "standard_service_port_number" . ]]",
+        [[- end ]]
         [[- range var "additional_tags" . ]]
         "[[ . ]]",
         [[- end ]]
