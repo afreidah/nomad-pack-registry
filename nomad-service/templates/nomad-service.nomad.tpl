@@ -214,17 +214,6 @@ job "[[ var "job_name" . ]]" {
           [[- end ]]
 
           proxy {
-            [[- if var "traefik_enabled" . ]]
-            # --- Expose service for external HTTP access ---
-            expose {
-              path {
-                path            = "/"
-                protocol        = "http"
-                local_path_port = [[ var "standard_service_port_number" . ]]
-              }
-            }
-            [[- end ]]
-
             [[- range var "connect_upstreams" . ]]
             upstreams {
               destination_name = "[[ .destination_name ]]"
@@ -244,6 +233,7 @@ job "[[ var "job_name" . ]]" {
 
       [[- if var "standard_http_check_enabled" . ]]
       check {
+        expose       = true
         name         = "[[ var "job_name" . ]]-ready"
         type         = "http"
         port         = "[[ var "standard_service_port" . ]]"
@@ -296,6 +286,7 @@ job "[[ var "job_name" . ]]" {
 
       [[- if var "standard_http_check_enabled" . ]]
       check {
+        expose       = true
         name         = "[[ var "job_name" . ]]-ready"
         type         = "http"
         port         = "[[ var "standard_service_port" . ]]"
