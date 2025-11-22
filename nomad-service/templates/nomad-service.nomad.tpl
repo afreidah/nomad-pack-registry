@@ -182,8 +182,8 @@ job "[[ var "job_name" . ]]" {
     # --- Consul Connect service for mesh communication ---
     service {
       name         = "[[ var "job_name" . ]]"
-      port         = [[ var "standard_service_port_number" . ]]
-      address_mode = "alloc"
+      port         = "[[ var "standard_service_port" . ]]"
+      address_mode = "[[ or (var "standard_service_address_mode" .) "alloc" ]]"
       provider     = "consul"
 
       tags = [

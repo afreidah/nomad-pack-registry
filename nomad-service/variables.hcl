@@ -435,3 +435,9 @@ variable "use_node_hostname" {
   type        = bool
   default     = false
 }
+
+variable "standard_service_address_mode" {
+  description = "Service address mode: 'alloc' (bridge IP) or 'host' (host IP + mapped port)"
+  type        = string
+  default     = "alloc"
+}
