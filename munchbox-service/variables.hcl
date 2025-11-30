@@ -80,7 +80,7 @@ variable "static_port" {
 
 variable "extra_ports" {
   description = "Additional ports: [{ name = 'grpc', port = 9090, static = false }]"
-  type        = list(object({ name = string, port = number, static = optional(bool) }))
+  type        = list(map(string))
   default     = []
 }
 
@@ -199,8 +199,8 @@ variable "job_dir" {
 }
 
 variable "templates" {
-  description = "Template files: [{ src = 'config.yml', dest = '/etc/app/config.yml', env = false }]"
-  type        = list(object({ src = string, dest = string, env = optional(bool), change_mode = optional(string) }))
+  description = "Template files: [{ src = 'config.yml', dest = '/etc/app/config.yml', env = false, change_mode = 'restart' }]"
+  type        = list(map(string))
   default     = []
 }
 
@@ -278,7 +278,7 @@ variable "privileged" {
 
 variable "devices" {
   description = "Device mappings: [{ host = '/dev/dri', container = '/dev/dri' }]"
-  type        = list(object({ host = string, container = string }))
+  type        = list(map(string))
   default     = []
 }
 
@@ -290,7 +290,7 @@ variable "cap_add" {
 
 variable "docker_extra" {
   description = "Additional Docker config (merged)"
-  type        = map(any)
+  type        = map(string)
   default     = {}
 }
 

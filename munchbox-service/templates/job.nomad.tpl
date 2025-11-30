@@ -31,7 +31,7 @@
 
 job "[[ $name ]]" {
   region      = "global"
-  datacenters = ["pi-dc"]
+  datacenters = ["munchbox"]
   type        = "[[ $job_type ]]"
   node_pool   = "all"
   priority    = [[ var "priority" . ]]
@@ -299,10 +299,16 @@ job "[[ $name ]]" {
         [[- $all_volumes = append $all_volumes (printf "%s/%s:%s" $local_base $storage_subdir $storage_path) ]]
         [[- end ]]
 
-        [[- /* Template file volumes */ -]]
+        [[- /* Template file volumes - mount from local/ or secrets/ */ -]]
         [[- range var "templates" . ]]
         [[- if not .env ]]
-        [[- $all_volumes = append $all_volumes (printf "local/%s:%s:ro" .src .dest) ]]
+        [[- $src_dir := "local" ]]
+        [[- $filename := .src ]]
+        [[- if .vault ]]
+        [[- $src_dir = "secrets" ]]
+        [[- $filename = trimSuffix ".tpl" .src ]]
+        [[- end ]]
+        [[- $all_volumes = append $all_volumes (printf "%s/%s:%s:ro" $src_dir $filename .dest) ]]
         [[- end ]]
         [[- end ]]
 
@@ -369,6 +375,8 @@ EOH
         [[- if .env ]]
         destination = "secrets/[[ .src ]]"
         env         = true
+        [[- else if .vault ]]
+        destination = "secrets/[[ trimSuffix ".tpl" .src ]]"
         [[- else ]]
         destination = "local/[[ .src ]]"
         [[- end ]]
