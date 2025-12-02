@@ -331,3 +331,8 @@ variable "kill_signal" {
   type        = string
   default     = "SIGTERM"
 }
+
+variable "constraints" {
+  description = "Job placement constraints as list of objects. Example: [{ attribute = \"$${node.unique.name}\", operator = \"=\", value = \"cabot\" }]"
+  default     = []
+}
