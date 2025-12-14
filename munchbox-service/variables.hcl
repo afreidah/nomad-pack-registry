@@ -254,6 +254,18 @@ variable "health_type" {
   default     = "http"
 }
 
+variable "health_timeout" {
+  description = "Health check timeout"
+  type        = string
+  default     = "3s"
+}
+
+variable "health_interval" {
+  description = "Health check interval"
+  type        = string
+  default     = "10s"
+}
+
 variable "tags" {
   description = "Additional Consul service tags"
   type        = list(string)

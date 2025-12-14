@@ -185,8 +185,8 @@ job "[[ $name ]]" {
         path     = "[[ var "health_path" . ]]"
         [[- end ]]
         port     = "[[ $port_name ]]"
-        interval = "10s"
-        timeout  = "3s"
+        interval = "[[ var "health_interval" . ]]"
+        timeout  = "[[ var "health_timeout" . ]]"
       }
       [[- end ]]
     }

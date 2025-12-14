@@ -1,7 +1,10 @@
 # -------------------------------------------------------------------------------
-# FILE: traefik-ingress/variables.hcl
-# -------------------------------------------------------------------------------
-# Traefik Pack Variables
+# Traefik Ingress Controller Pack - Variables
+#
+# Project: Munchbox / Author: Alex Freidah
+#
+# Configuration variables for the Traefik reverse proxy including network ports,
+# TLS settings, Consul integration, and service mesh configuration.
 # -------------------------------------------------------------------------------
 
 variable "job_name" {

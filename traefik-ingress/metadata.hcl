@@ -1,8 +1,7 @@
 # -------------------------------------------------------------------------------
-# Project: Munchbox
-# Author: Alex Freidah
-# -------------------------------------------------------------------------------
-# Traefik Ingress Controller Pack
+# Traefik Ingress Controller Pack - Metadata
+#
+# Project: Munchbox / Author: Alex Freidah
 #
 # System job for HTTPS-first reverse proxy with Consul service discovery and
 # native Consul Connect protocol support for service mesh integration.

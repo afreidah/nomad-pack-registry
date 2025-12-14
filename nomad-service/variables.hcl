@@ -2,7 +2,7 @@
 # Nomad Service Pack - Variables
 #
 # Project: Munchbox / Author: Alex Freidah
-# -------------------------------------------------------------------------------
+#
 # Complete variable definitions with types, defaults, and documentation.
 # Variables are organized by functional area for easier navigation.
 # -------------------------------------------------------------------------------
