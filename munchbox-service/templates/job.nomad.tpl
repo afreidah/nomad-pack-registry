@@ -187,6 +187,7 @@ job "[[ $name ]]" {
         port     = "[[ $port_name ]]"
         interval = "[[ var "health_interval" . ]]"
         timeout  = "[[ var "health_timeout" . ]]"
+        on_update = "require_healthy"
       }
       [[- end ]]
     }

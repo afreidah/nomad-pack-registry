@@ -266,6 +266,12 @@ variable "health_interval" {
   default     = "10s"
 }
 
+variable "deregister_critical_service_after" {
+  description = "Auto-deregister service from Consul after critical for this duration"
+  type        = string
+  default     = "1m"
+}
+
 variable "tags" {
   description = "Additional Consul service tags"
   type        = list(string)
