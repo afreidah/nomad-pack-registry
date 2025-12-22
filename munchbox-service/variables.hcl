@@ -300,6 +300,12 @@ variable "devices" {
   default     = []
 }
 
+variable "runtime" {
+  description = "Docker runtime to use (e.g., 'nvidia' for GPU workloads)"
+  type        = string
+  default     = ""
+}
+
 variable "cap_add" {
   description = "Linux capabilities to add"
   type        = list(string)
