@@ -52,13 +52,17 @@ job "[[ $name ]]" {
   [[- if eq $job_type "service" ]]
   update {
     max_parallel      = 1
+    [[- if or $host_network (gt $static_port 0) ]]
+    canary            = 0
+    [[- else ]]
     canary            = 1
+    auto_promote      = true
+    [[- end ]]
     health_check      = "checks"
     min_healthy_time  = "30s"
     healthy_deadline  = "5m"
     progress_deadline = "10m"
     auto_revert       = true
-    auto_promote      = true
   }
   [[- else if eq $job_type "system" ]]
   update {
