@@ -88,7 +88,9 @@ job "[[ $name ]]" {
 
   [[- range var "constraints" . ]]
   constraint {
+    [[- if .attribute ]]
     attribute = "[[ .attribute ]]"
+    [[- end ]]
     operator  = "[[ .operator ]]"
     value     = "[[ .value ]]"
   }
