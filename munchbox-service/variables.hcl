@@ -85,9 +85,16 @@ variable "extra_ports" {
 }
 
 variable "dns" {
+  # Default points at the host's local dnsmasq (configured in
+  # ansible/playbooks/configure-local-consul-dns.yml) rather than the
+  # pi-hole pair. The pi-holes can't resolve `*.service.consul`, so any
+  # bridge-mode pack job that needs to reach a Consul-discovered service
+  # would silently fail to resolve. The local dnsmasq forwards .consul
+  # queries to the on-host Consul agent and forwards everything else to
+  # the pi-holes, so we get both layers correctly.
   description = "Custom DNS servers (bridge mode only)"
   type        = list(string)
-  default     = ["192.168.68.62", "192.168.68.64"]
+  default     = ["$${attr.unique.network.ip-address}"]
 }
 
 # -------------------------------------------------------------------------------
