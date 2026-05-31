@@ -44,6 +44,12 @@ variable "node" {
   default     = "any"
 }
 
+variable "node_pool" {
+  description = "Nomad node pool to schedule into. Defaults to 'all' (everywhere)."
+  type        = string
+  default     = "all"
+}
+
 variable "priority" {
   description = "Job priority (1-100)"
   type        = number

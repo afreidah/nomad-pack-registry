@@ -33,7 +33,7 @@ job "[[ $name ]]" {
   region      = "global"
   datacenters = ["munchbox"]
   type        = "[[ $job_type ]]"
-  node_pool   = "all"
+  node_pool   = "[[ var "node_pool" . ]]"
   priority    = [[ var "priority" . ]]
 
   # ---------------------------------------------------------------------------
