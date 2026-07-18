@@ -84,6 +84,12 @@ variable "static_port" {
   default     = 0
 }
 
+variable "bridge_static" {
+  description = "Bridge-network the task while still binding the static host port (netns isolation with a fixed port, e.g. a browser sandbox)"
+  type        = bool
+  default     = false
+}
+
 variable "extra_ports" {
   description = "Additional ports: [{ name = 'grpc', port = 9090, static = false }]"
   type        = list(map(string))
