@@ -254,7 +254,8 @@ job "[[ $name ]]" {
       [[- /* Vault Integration */ -]]
       [[- if var "vault" . ]]
       vault {
-        role = "[[ var "vault_role" . ]]"
+        role        = "[[ var "vault_role" . ]]"
+        change_mode = "noop"
       }
 
       identity {
