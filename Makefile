@@ -6,12 +6,16 @@
 # security scanning (Checkov, Trivy), and local testing of the container.
 # -------------------------------------------------------------------------------
 
-.PHONY: help docker-build docker-checkov docker-trivy docker-trivy-image docker-test docker-run clean
+.PHONY: help test docker-build docker-checkov docker-trivy docker-trivy-image docker-test docker-run clean
 
 SHELL := /bin/bash
 IMAGE_NAME := nomad-pack-builder
 IMAGE_TAG := latest
 IMAGE_FULL := $(IMAGE_NAME):$(IMAGE_TAG)
+
+# Every directory carrying a metadata.hcl is a pack, so a new one is picked up
+# without editing this file.
+PACKS := $(patsubst %/metadata.hcl,%,$(wildcard */metadata.hcl))
 
 # -----------------------------------------------------------------------
 # Help Target
@@ -20,6 +24,7 @@ IMAGE_FULL := $(IMAGE_NAME):$(IMAGE_TAG)
 help:
 	@echo "Nomad Pack Registry - Docker Build Targets"
 	@echo ""
+	@echo "  make test               Render every pack (what CI runs)"
 	@echo "  make docker-build       Build Docker image"
 	@echo "  make docker-checkov     Run Checkov security scan on Dockerfile"
 	@echo "  make docker-trivy       Run Trivy scan on Dockerfile"
@@ -33,6 +38,29 @@ help:
 	@echo "  make docker-test                   # Build and scan everything"
 	@echo "  make docker-run                    # Run container shell"
 	@echo ""
+
+# -----------------------------------------------------------------------
+# Pack Render Target
+# -----------------------------------------------------------------------
+
+# What CI runs inside the builder image. Rendering is the deepest check
+# available without a cluster: it expands every template and fails on a
+# syntax error or an unresolved variable. `nomad job validate` needs a live
+# agent to POST to, so it cannot run here.
+#
+# "name" is the one variable with no default in variables.hcl -- every real
+# job supplies it -- so a placeholder is passed to keep the render
+# self-contained.
+
+test:
+	@fail=0; \
+	for pack in $(PACKS); do \
+		echo "rendering $$pack"; \
+		nomad-pack render "./$$pack" --var name=citest > /dev/null || \
+			{ echo "FAILED to render: $$pack"; fail=1; }; \
+	done; \
+	if [ "$$fail" -ne 0 ]; then echo "one or more packs failed to render"; exit 1; fi; \
+	echo "all packs rendered"
 
 # -----------------------------------------------------------------------
 # Docker Build Target
